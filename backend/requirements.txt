@@ -1,0 +1,11 @@
+# db
+pymongo
+
+# service stuff
+fastapi
+requests
+uvicorn
+
+# convenience stuff
+loguru
+dotenv
