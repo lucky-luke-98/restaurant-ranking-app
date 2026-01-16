@@ -2,5 +2,6 @@ import sys
 
 from loguru import logger
 
-logger.remove()
-logger.add(sys.stderr, level="DEBUG")
+def configure_logger():
+    logger.remove()
+    logger.add(sys.stderr, level="DEBUG")

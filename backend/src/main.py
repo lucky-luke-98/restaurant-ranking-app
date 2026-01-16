@@ -1,14 +1,23 @@
+from src.utils.logger import configure_logger
+configure_logger()
+
 from fastapi import FastAPI
 from dotenv import load_dotenv
 
-from src.routers.db_router import db_router
-
+from src.users import user_router
+from src.restaurants import restaurant_router
 
 load_dotenv()
 
+
 app = FastAPI(title="ResRank Backend")
 
-app.include_router(db_router, prefix="/db", tags=["db"])
+# ======================= append all routers ======================= #
+
+app.include_router(user_router, prefix="/users")
+app.include_router(restaurant_router, prefix="/restaurant")
+
+# ======================= some basic endpoints ======================= #
 
 @app.get("/", tags=["home"])
 def root():

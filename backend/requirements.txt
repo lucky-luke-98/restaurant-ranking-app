@@ -9,3 +9,4 @@ uvicorn
 # convenience stuff
 loguru
 dotenv
+pydantic-settings
