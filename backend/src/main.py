@@ -1,23 +1,44 @@
-from src.utils.logger import configure_logger
-configure_logger()
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from dotenv import load_dotenv
+from fastapi.middleware.cors import CORSMiddleware
+from loguru import logger
 
+from src.utils.logger import configure_logger
+configure_logger()
+from src.config import settings
 from src.users import user_router
 from src.restaurants import restaurant_router
+from src.db.mongo_client import initialize_mongo_client, close_mongo_client
 
-load_dotenv()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+
+    logger.info("Starting up the backend application ...")
+    initialize_mongo_client()
+    logger.info("Backend app start up complete.")
+
+    yield
+    
+    logger.info("Closing up the backend application ...")
+    close_mongo_client()
+    logger.info("Backend app closed.")
 
 
-app = FastAPI(title="ResRank Backend")
+app = FastAPI(title="ResRank Backend", lifespan=lifespan)
 
-# ======================= append all routers ======================= #
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o.strip() for o in settings.allowed_origins.split(",") if o.strip()],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
+)
 
 app.include_router(user_router, prefix="/users")
 app.include_router(restaurant_router, prefix="/restaurant")
 
-# ======================= some basic endpoints ======================= #
 
 @app.get("/", tags=["home"])
 def root():
@@ -31,4 +52,4 @@ def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=4000)
+    uvicorn.run(app, host="0.0.0.0", port=8080)

@@ -6,6 +6,11 @@ fastapi
 requests
 uvicorn
 
+# auth
+PyJWT
+passlib[bcrypt]
+bcrypt==4.0.1
+
 # convenience stuff
 loguru
 dotenv
