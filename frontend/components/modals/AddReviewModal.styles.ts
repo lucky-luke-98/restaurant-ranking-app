@@ -41,7 +41,7 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '600',
     marginBottom: 8,
   },
-  dateInput: {
+  textInputSingle: {
     backgroundColor: colors.backgroundInput,
     borderRadius: 10,
     padding: 14,
@@ -59,6 +59,125 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
     textAlignVertical: 'top',
     marginBottom: 20,
   },
+  // Food items section
+  foodSection: {
+    marginBottom: 20,
+  },
+  foodSectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  foodSectionTitle: {
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  foodSectionHint: {
+    color: colors.textFaint,
+    fontSize: 13,
+    fontStyle: 'italic',
+    marginBottom: 8,
+  },
+  addFoodButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.backgroundButton,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  addFoodButtonText: {
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  foodItemCard: {
+    backgroundColor: colors.backgroundInput,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+  },
+  foodItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  foodItemTitle: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '600',
+    flex: 1,
+  },
+  // Price row
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.backgroundCard,
+    borderRadius: 10,
+    marginBottom: 16,
+    paddingRight: 14,
+  },
+  priceInput: {
+    flex: 1,
+    padding: 14,
+    color: colors.text,
+    fontSize: 15,
+  },
+  currencyLabel: {
+    color: colors.textTertiary,
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  // Image handling
+  imageActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 12,
+  },
+  imageButton: {
+    backgroundColor: colors.backgroundCard,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  imageButtonText: {
+    color: colors.textTertiary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  imagePreviewRow: {
+    marginBottom: 8,
+  },
+  imagePreviewWrapper: {
+    marginRight: 10,
+    position: 'relative',
+  },
+  imagePreview: {
+    width: 80,
+    height: 80,
+    borderRadius: 10,
+  },
+  imageRemove: {
+    position: 'absolute',
+    top: -6,
+    right: -6,
+    backgroundColor: colors.imageRemoveBackground,
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageRemoveText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  // Coauthors
   coauthorSection: {
     marginBottom: 20,
     gap: 8,

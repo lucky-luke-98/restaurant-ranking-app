@@ -125,7 +125,10 @@ async def list_friends(current_user: dict = Depends(get_current_user)) -> dict:
 @router.post("/friends")
 async def add_friend_endpoint(data: AddFriendRequest, current_user: dict = Depends(get_current_user)):
     """Add a friend connection."""
-    await to_thread(add_friend, user_id=current_user["user_id"], friend_user_id=data.friend_user_id)
+    try:
+        await to_thread(add_friend, user_id=current_user["user_id"], friend_user_id=data.friend_user_id)
+    except ValueError as exp:
+        raise HTTPException(status_code=400, detail=str(exp))
     return {"success": True}
 
 

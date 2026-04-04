@@ -1,5 +1,7 @@
 from datetime import datetime, timezone
 
+from pymongo.errors import DuplicateKeyError
+
 from src.db.mongo_client import get_mongo_collection
 from src.utils.wrappers import service
 from src.utils.auth import hash_password, verify_password
@@ -35,11 +37,11 @@ def create_one_user(request: CreateUserRequest) -> bool:
     """
     collection = get_mongo_collection(settings.mongo_users_collection)
 
-    if collection.find_one({"mail": request.mail}):
-        raise ValueError("A user with this email already exists.")
-
     user_instance = User(**request.model_dump(), password_hash="")
-    result = collection.insert_one(user_instance.model_dump())
+    try:
+        result = collection.insert_one(user_instance.model_dump())
+    except DuplicateKeyError:
+        raise ValueError("A user with this email already exists.")
     return result.acknowledged
 
 
@@ -50,9 +52,6 @@ def register_user(request: RegisterRequest) -> User:
     """
     collection = get_mongo_collection(settings.mongo_users_collection)
 
-    if collection.find_one({"mail": request.mail}):
-        raise ValueError("A user with this email already exists.")
-
     user = User(
         first_name=request.first_name,
         last_name=request.last_name,
@@ -61,7 +60,10 @@ def register_user(request: RegisterRequest) -> User:
     )
     doc = user.model_dump()
     doc["last_logged_in"] = datetime.now(timezone.utc).isoformat()
-    collection.insert_one(doc)
+    try:
+        collection.insert_one(doc)
+    except DuplicateKeyError:
+        raise ValueError("A user with this email already exists.")
     return user
 
 
@@ -137,6 +139,11 @@ def add_friend(user_id: str, friend_user_id: str) -> bool:
     """
     Creates a bidirectional friend connection.
     """
+    if user_id == friend_user_id:
+        raise ValueError("Cannot add yourself as a friend.")
+    if not verify_user_entry(friend_user_id):
+        raise ValueError("Friend user not found.")
+
     collection = get_mongo_collection(settings.mongo_friends_collection)
     existing = collection.find_one({
         "user_id": user_id, "friend_user_id": friend_user_id,

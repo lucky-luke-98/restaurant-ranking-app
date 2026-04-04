@@ -144,6 +144,69 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderLeftWidth: 2,
     borderLeftColor: colors.border,
   },
+  // Food items section inside card
+  foodSection: {
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  foodToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+  },
+  foodToggleText: {
+    color: colors.textTertiary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  foodItem: {
+    backgroundColor: colors.backgroundElevated,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 8,
+  },
+  foodHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  foodName: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
+  foodPrice: {
+    color: colors.textTertiary,
+    fontSize: 14,
+  },
+  foodComment: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    marginTop: 4,
+    paddingLeft: 8,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.border,
+  },
+  imageRow: {
+    marginTop: 8,
+  },
+  image: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  imagePlaceholder: {
+    height: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  // Actions
   actionRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',

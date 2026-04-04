@@ -1,4 +1,4 @@
-from pymongo import MongoClient
+from pymongo import MongoClient, ASCENDING
 from pymongo.collection import Collection
 
 from src.config import settings
@@ -19,7 +19,21 @@ class MongoDBClient:
         self._client = MongoClient(settings.mongo_uri)
         db_name = settings.mongo_db
         self._db = self._client[db_name]
+        self._ensure_indexes()
         logger.info("MongoDB client initialized successfully")
+
+    def _ensure_indexes(self):
+        """Create unique indexes to enforce data integrity at the database level."""
+        if self._db is None:
+            return
+        self._db[settings.mongo_users_collection].create_index(
+            [("mail", ASCENDING)], unique=True
+        )
+        self._db[settings.mongo_restaurants_collection].create_index(
+            [("google_place_id", ASCENDING)],
+            unique=True,
+            partialFilterExpression={"google_place_id": {"$type": "string"}},
+        )
 
     def close(self):
         if self._client:

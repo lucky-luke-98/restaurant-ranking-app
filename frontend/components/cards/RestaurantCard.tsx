@@ -54,60 +54,64 @@ export default function RestaurantCard({ restaurant, stats, onDelete }: Restaura
         })
       }
     >
-      <View style={styles.topRow}>
-        <View style={styles.topLeft}>
-          <View style={styles.header}>
-            <Text style={styles.name} numberOfLines={1}>{restaurant.name}</Text>
-            <View style={styles.cuisineBadge}>
-              <CuisineIcon size={13} color={colors.tint} weight="duotone" />
-              <Text style={styles.cuisine}>{cuisineLabel}</Text>
+      <View style={styles.emblem}>
+        <CuisineIcon size={26} color="#fff" weight="duotone" />
+      </View>
+      <View style={styles.cardContent}>
+        <View style={styles.topRow}>
+          <View style={styles.topLeft}>
+            <View style={styles.header}>
+              <Text style={styles.name} numberOfLines={1}>{restaurant.name}</Text>
+              <View style={styles.cuisineBadge}>
+                <Text style={styles.cuisine}>{cuisineLabel}</Text>
+              </View>
+            </View>
+            <View style={styles.locationRow}>
+              <MapPinIcon size={14} color={colors.textMuted} />
+              <Text style={styles.location}>
+                {restaurant.street}, {restaurant.city}
+              </Text>
             </View>
           </View>
-          <View style={styles.locationRow}>
-            <MapPinIcon size={14} color={colors.textMuted} />
-            <Text style={styles.location}>
-              {restaurant.street}, {restaurant.city}
-            </Text>
-          </View>
+          <CaretRightIcon size={18} color={colors.textFaint} />
         </View>
-        <CaretRightIcon size={18} color={colors.textFaint} />
+        {(stats || onDelete) && (
+          <View style={styles.bottomRow}>
+            <View style={styles.statsLeft}>
+              {stats && stats.count > 0 ? (
+                <View style={styles.statsRow}>
+                  <StarIcon size={14} color={ratingColor(stats.avg_rating ?? 0)} weight="fill" />
+                  <Text style={[styles.statsRating, { color: ratingColor(stats.avg_rating ?? 0) }]}>
+                    {stats.avg_rating?.toFixed(1)}
+                  </Text>
+                  <Text style={styles.statsCount}>
+                    ({stats.count})
+                  </Text>
+                </View>
+              ) : stats ? (
+                <Text style={styles.statsCount}>{t.emptyReviews}</Text>
+              ) : (
+                <View />
+              )}
+              {stats?.last_visited && (
+                <View style={styles.statsRow}>
+                  <CalendarIcon size={13} color={colors.textFaint} />
+                  <Text style={styles.statsCount}>{t.visitedAt(stats.last_visited)}</Text>
+                </View>
+              )}
+            </View>
+            {onDelete && (
+              <Pressable
+                style={styles.deleteButton}
+                hitSlop={6}
+                onPress={() => onDelete(restaurant.restaurant_id)}
+              >
+                <TrashIcon size={15} color={colors.error} />
+              </Pressable>
+            )}
+          </View>
+        )}
       </View>
-      {(stats || onDelete) && (
-        <View style={styles.bottomRow}>
-          <View style={styles.statsLeft}>
-            {stats && stats.count > 0 ? (
-              <View style={styles.statsRow}>
-                <StarIcon size={14} color={ratingColor(stats.avg_rating ?? 0)} weight="fill" />
-                <Text style={[styles.statsRating, { color: ratingColor(stats.avg_rating ?? 0) }]}>
-                  {stats.avg_rating?.toFixed(1)}
-                </Text>
-                <Text style={styles.statsCount}>
-                  ({stats.count})
-                </Text>
-              </View>
-            ) : stats ? (
-              <Text style={styles.statsCount}>{t.emptyFoodReviews}</Text>
-            ) : (
-              <View />
-            )}
-            {stats?.last_visited && (
-              <View style={styles.statsRow}>
-                <CalendarIcon size={13} color={colors.textFaint} />
-                <Text style={styles.statsCount}>{stats.last_visited}</Text>
-              </View>
-            )}
-          </View>
-          {onDelete && (
-            <Pressable
-              style={styles.deleteButton}
-              hitSlop={6}
-              onPress={() => onDelete(restaurant.restaurant_id)}
-            >
-              <TrashIcon size={15} color={colors.error} />
-            </Pressable>
-          )}
-        </View>
-      )}
     </Pressable>
   )
 }

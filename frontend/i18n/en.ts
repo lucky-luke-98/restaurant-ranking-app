@@ -62,13 +62,9 @@ const en = {
   // Restaurant Detail
   restaurantsSlash: (name: string) => `Restaurants / ${name}`,
   sectionReviews: 'Reviews',
-  sectionFoodReviews: 'Food Reviews',
   emptyReviews: 'No reviews yet.',
-  emptyFoodReviews: 'No food reviews yet.',
   restaurantNotFound: 'Restaurant not found.',
   confirmDeleteReview: 'Delete this review?',
-  confirmDeleteFoodReview: 'Delete this food review?',
-  foodReviewRequiresReview: 'Add a restaurant review first.',
 
   // Map
   mapVisited: 'Visited',
@@ -77,7 +73,7 @@ const en = {
   // Review Card
   visited: (date: string) => `Visited ${date}`,
   cleanliness: 'Cleanliness',
-  experience: 'Experience',
+  ambiance: 'Ambiance',
   rating: 'Rating',
 
   // Add Restaurant Modal
@@ -103,22 +99,24 @@ const en = {
   edit: 'Edit',
   edited: 'edited',
   editReviewTitle: 'Edit Review',
-  editFoodReviewTitle: 'Edit Food Review',
   saveChanges: 'Save Changes',
   failedUpdateReview: 'Failed to update review',
-  failedUpdateFoodReview: 'Failed to update food review',
 
   // Add Review Modal
   addReviewTitle: 'Add Review',
   visitedOnOptional: 'Visited on (optional)',
   datePlaceholder: 'YYYY-MM-DD',
   commentOptional: 'Comment (optional)',
-  commentPlaceholder: 'How was your experience?',
+  commentPlaceholder: 'How was your visit?',
   submitReview: 'Submit Review',
   failedSubmitReview: 'Failed to submit review',
 
-  // Add Food Review Modal
-  addFoodReviewTitle: 'Add Food Review',
+  // Food Items
+  foodItems: 'Food Items',
+  foodItemsHint: 'Optionally add food items you tried.',
+  showFoodItems: (count: number) => `Show food items (${count})`,
+  hideFoodItems: 'Hide food items',
+  visitedAt: (date: string) => `Visited at: ${date}`,
   foodName: 'Food Name',
   foodNamePlaceholder: 'e.g. Margherita Pizza',
   priceLabel: 'Price (\u20AC)',
@@ -127,8 +125,6 @@ const en = {
   photosOptional: 'Photos (optional)',
   gallery: 'Gallery',
   camera: 'Camera',
-  submitFoodReview: 'Submit Food Review',
-  failedSubmitFoodReview: 'Failed to submit food review',
 
   // Confirm Modal
   confirmLogout: 'Log out?',

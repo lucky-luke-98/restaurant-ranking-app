@@ -17,6 +17,7 @@ class Restaurant(BaseModel):
     country: str
     latitude: float | None = None
     longitude: float | None = None
+    created_by: str | None = None
 
 class RestaurantReview(BaseModel):
     review_id: str = Field(default_factory=lambda: str(uuid4()))
@@ -40,6 +41,12 @@ class FoodReview(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime | None = None
     visited_at: date | None = None
+
+class ReviewImage(BaseModel):
+    image_id: str = Field(default_factory=lambda: str(uuid4()))
+    review_id: str
+    data: str  # base64-encoded image
+    content_type: str = "image/jpeg"
 
 class FoodReviewImage(BaseModel):
     image_id: str = Field(default_factory=lambda: str(uuid4()))
@@ -94,6 +101,7 @@ class CreateRestaurantReviewRequest(BaseModel):
     comment: str | None = Field(None, description="Optional comment provided by the user.")
     visited_at: date | None = Field(None, description="Optional date when the restaurant was visited.")
     coauthor_ids: list[str] = Field(default_factory=list, description="User IDs of friends who co-authored this review.")
+    images: list[str] = Field(default_factory=list, description="List of base64-encoded images.")
 
 class CreateFoodReviewRequest(BaseModel):
     restaurant_id: str = Field(..., description="ID of the restaurant the food belongs to.")

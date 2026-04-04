@@ -2,12 +2,14 @@ from datetime import datetime, timezone
 
 import requests
 from loguru import logger
+from pymongo.errors import DuplicateKeyError
 
 from src.db.mongo_client import get_mongo_collection, get_mongo_client
 from src.users import verify_user_entry
 from src.restaurants.models import (
     Restaurant,
     RestaurantReview,
+    ReviewImage,
     FoodReview,
     FoodReviewImage,
     WishlistEntry,
@@ -127,21 +129,26 @@ def _fetch_place_details(google_place_id: str) -> dict:
 # ==================== restaurants ==================== #
 
 @service
-def create_one_restaurant(request: CreateRestaurantRequest) -> str | None:
+def create_one_restaurant(request: CreateRestaurantRequest, user_id: str) -> str | None:
     """
     Creates a restaurant by fetching details from Google Places using the place ID.
     """
     collection = get_mongo_collection(collection_name=settings.mongo_restaurants_collection)
 
-    # Check for duplicate
+    # Return existing restaurant if already present
     existing = collection.find_one({"google_place_id": request.google_place_id})
     if existing:
         return existing["restaurant_id"]
 
     place_data = _fetch_place_details(request.google_place_id)
     place_data["cuisine_type"] = request.cuisine_type
+    place_data["created_by"] = user_id
     restaurant = Restaurant(**place_data)
-    result = collection.insert_one(restaurant.model_dump())
+    try:
+        result = collection.insert_one(restaurant.model_dump())
+    except DuplicateKeyError:
+        existing = collection.find_one({"google_place_id": request.google_place_id})
+        return existing["restaurant_id"] if existing else None
     if result.acknowledged:
         return restaurant.restaurant_id
     return None
@@ -193,8 +200,14 @@ def create_one_restaurant_review(request: CreateRestaurantReviewRequest, user_id
     if not verify_user_entry(user_id):
         raise ValueError("User ID not found in the db. Please set the user first.")
 
+    # Validate all coauthor IDs exist before proceeding
+    if request.coauthor_ids:
+        for coauthor_id in request.coauthor_ids:
+            if not verify_user_entry(coauthor_id):
+                raise ValueError(f"Coauthor user '{coauthor_id}' not found.")
+
     collection = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
-    review_data = request.model_dump(exclude={"coauthor_ids"})
+    review_data = request.model_dump(exclude={"coauthor_ids", "images"})
     review = RestaurantReview(**review_data, user_id=user_id)
     doc = review.model_dump(mode="json")
     if request.coauthor_ids:
@@ -224,6 +237,15 @@ def create_one_restaurant_review(request: CreateRestaurantReviewRequest, user_id
                 entry = VisitedEntry(user_id=coauthor_id, restaurant_id=request.restaurant_id)
                 visited_col.insert_one(entry.model_dump())
             wishlist_col.delete_one({"user_id": coauthor_id, "restaurant_id": request.restaurant_id})
+
+    # Store review images
+    MAX_IMAGE_BYTES = 12_000_000
+    valid_images = [img for img in request.images if len(img) <= MAX_IMAGE_BYTES]
+    if valid_images:
+        images_collection = get_mongo_collection(collection_name=settings.mongo_images_collection)
+        for img_data in valid_images:
+            doc = ReviewImage(review_id=review.review_id, data=img_data).model_dump()
+            images_collection.insert_one(doc)
 
     return review.review_id
 
@@ -284,11 +306,15 @@ def get_review_by_id(review_id: str) -> dict | None:
 @service
 def delete_review(request: DeleteReviewRequest) -> bool:
     """
-    Deletes a restaurant review by its ID.
+    Deletes a restaurant review by its ID and all associated images.
     """
     collection = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
     result = collection.delete_one({"review_id": request.review_id})
-    return result.deleted_count > 0
+    if result.deleted_count > 0:
+        images_collection = get_mongo_collection(collection_name=settings.mongo_images_collection)
+        images_collection.delete_many({"review_id": request.review_id})
+        return True
+    return False
 
 
 @service
@@ -419,6 +445,18 @@ def update_food_review(request: UpdateFoodReviewRequest) -> bool:
         {"$set": updates},
     )
     return result.modified_count > 0
+
+
+@service
+def get_images_by_review(review_id: str) -> list[dict]:
+    """
+    Returns all images for a given restaurant review.
+    """
+    collection = get_mongo_collection(collection_name=settings.mongo_images_collection)
+    images = list(collection.find({"review_id": review_id}))
+    for img in images:
+        img.pop("_id", None)
+    return images
 
 
 @service

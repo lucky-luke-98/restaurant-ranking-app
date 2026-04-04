@@ -13,9 +13,7 @@ import { CUISINE_ICONS, CUISINE_LABEL_KEYS, type CuisineType } from '@/constants
 import apiClient, { ApiError } from '@/services/apiClient'
 import { useAuth } from '@/services/AuthContext'
 import ReviewCard from '@/components/cards/ReviewCard'
-import FoodReviewCard from '@/components/cards/FoodReviewCard'
-import AddReviewModal, { ReviewInitialValues } from '@/components/modals/AddReviewModal'
-import AddFoodReviewModal, { FoodReviewInitialValues } from '@/components/modals/AddFoodReviewModal'
+import AddReviewModal, { ReviewInitialValues, FoodItemEntry } from '@/components/modals/AddReviewModal'
 import ConfirmModal from '@/components/modals/ConfirmModal'
 import { useTranslation } from '@/services/LanguageContext'
 import { useThemeColors } from '@/hooks/useThemeColors'
@@ -36,6 +34,13 @@ interface ReviewCoauthor {
   avatar?: string
 }
 
+interface ReviewImage {
+  image_id: string
+  review_id: string
+  data: string
+  content_type: string
+}
+
 interface Review {
   review_id: string
   user_id: string
@@ -48,13 +53,7 @@ interface Review {
   first_name?: string
   avatar?: string
   coauthors?: ReviewCoauthor[]
-}
-
-interface FoodReviewImage {
-  image_id: string
-  food_review_id: string
-  data: string
-  content_type: string
+  images?: ReviewImage[]
 }
 
 interface FoodReview {
@@ -69,7 +68,6 @@ interface FoodReview {
   visited_at?: string
   first_name?: string
   avatar?: string
-  images?: FoodReviewImage[]
 }
 
 export default function RestaurantDetailScreen() {
@@ -85,12 +83,10 @@ export default function RestaurantDetailScreen() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [reviewModalVisible, setReviewModalVisible] = useState(false)
-  const [foodReviewModalVisible, setFoodReviewModalVisible] = useState(false)
   const [editingReview, setEditingReview] = useState<ReviewInitialValues | null>(null)
-  const [editingFoodReview, setEditingFoodReview] = useState<FoodReviewInitialValues | null>(null)
 
   const [imagesLoading, setImagesLoading] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState<{ type: 'review' | 'food'; id: string } | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string } | null>(null)
 
   const fetchData = useCallback(() => {
     setLoading(true)
@@ -107,28 +103,29 @@ export default function RestaurantDetailScreen() {
             const bOwn = user && b.user_id === user.user_id ? 0 : 1
             return aOwn - bOwn
           })
-        setReviews(sortOwn(reviewsData.reviews))
+        const sortedReviews = sortOwn(reviewsData.reviews)
+        setReviews(sortedReviews)
         setFoodReviews(sortOwn(foodReviewsData.food_reviews))
         setLoading(false)
 
-        // Load images in the background
+        // Load review images in the background
         setImagesLoading(true)
         Promise.all(
-          foodReviewsData.food_reviews.map(async (fr) => {
+          sortedReviews.map(async (r) => {
             try {
-              const imgData = await apiClient.get<{ images: FoodReviewImage[] }>(
-                `/restaurant/reviews/food/${fr.food_review_id}/images`
+              const imgData = await apiClient.get<{ images: ReviewImage[] }>(
+                `/restaurant/reviews/${r.review_id}/images`
               )
-              return { id: fr.food_review_id, images: imgData.images }
+              return { id: r.review_id, images: imgData.images }
             } catch {
-              return { id: fr.food_review_id, images: [] as FoodReviewImage[] }
+              return { id: r.review_id, images: [] as ReviewImage[] }
             }
           })
         ).then((results) => {
-          setFoodReviews((prev) =>
-            prev.map((fr) => {
-              const match = results.find((r) => r.id === fr.food_review_id)
-              return match ? { ...fr, images: match.images } : fr
+          setReviews((prev) =>
+            prev.map((r) => {
+              const match = results.find((res) => res.id === r.review_id)
+              return match ? { ...r, images: match.images } : r
             })
           )
           setImagesLoading(false)
@@ -148,62 +145,85 @@ export default function RestaurantDetailScreen() {
     fetchData()
   }, [fetchData])
 
+  // Group food reviews by user_id for display alongside restaurant reviews
+  const foodReviewsByUser = useMemo(() => {
+    const map = new Map<string, FoodReview[]>()
+    for (const fr of foodReviews) {
+      const existing = map.get(fr.user_id) ?? []
+      existing.push(fr)
+      map.set(fr.user_id, existing)
+    }
+    return map
+  }, [foodReviews])
+
   const handleAddReview = async (data: {
     cleanliness_rating: number
     experience_rating: number
     comment: string
     visited_at?: string
     coauthor_ids?: string[]
+    images: string[]
+    food_items: FoodItemEntry[]
   }) => {
+    // Create restaurant review (with images)
     await apiClient.post('/restaurant/reviews', {
       restaurant_id: id,
-      ...data,
+      cleanliness_rating: data.cleanliness_rating,
+      experience_rating: data.experience_rating,
+      comment: data.comment,
+      images: data.images,
+      ...(data.visited_at ? { visited_at: data.visited_at } : {}),
+      ...(data.coauthor_ids ? { coauthor_ids: data.coauthor_ids } : {}),
     })
+    // Create food reviews
+    for (const item of data.food_items) {
+      await apiClient.post('/restaurant/reviews/food', {
+        restaurant_id: id,
+        food_name: item.food_name,
+        price: item.price,
+        rating: item.rating,
+        comment: item.comment,
+        ...(data.visited_at ? { visited_at: data.visited_at } : {}),
+      })
+    }
     setReviewModalVisible(false)
     fetchData()
   }
 
   const handleDeleteReview = (reviewId: string) => {
-    setConfirmDelete({ type: 'review', id: reviewId })
-  }
-
-  const handleAddFoodReview = async (data: {
-    food_name: string
-    price: number
-    rating: number
-    comment: string
-    images: string[]
-    visited_at?: string
-  }) => {
-    await apiClient.post('/restaurant/reviews/food', {
-      restaurant_id: id,
-      ...data,
-    })
-    setFoodReviewModalVisible(false)
-    fetchData()
-  }
-
-  const handleDeleteFoodReview = (foodReviewId: string) => {
-    setConfirmDelete({ type: 'food', id: foodReviewId })
+    setConfirmDelete({ id: reviewId })
   }
 
   const executeDelete = async () => {
     if (!confirmDelete) return
-    const path = confirmDelete.type === 'review'
-      ? `/restaurant/reviews/${confirmDelete.id}`
-      : `/restaurant/reviews/food/${confirmDelete.id}`
-    await apiClient.delete(path)
+    // Delete the restaurant review (backend cascades image deletion)
+    await apiClient.delete(`/restaurant/reviews/${confirmDelete.id}`)
+    // Also delete associated food reviews for this user
+    const userFoodReviews = foodReviews.filter(
+      (fr) => fr.user_id === user?.user_id
+    )
+    for (const fr of userFoodReviews) {
+      await apiClient.delete(`/restaurant/reviews/food/${fr.food_review_id}`)
+    }
     setConfirmDelete(null)
     fetchData()
   }
 
   const handleEditReview = (review: Review) => {
+    const userFoods = foodReviewsByUser.get(review.user_id) ?? []
     setEditingReview({
       review_id: review.review_id,
       cleanliness_rating: review.cleanliness_rating,
       experience_rating: review.experience_rating,
       comment: review.comment,
       visited_at: review.visited_at,
+      food_items: userFoods.map((fr) => ({
+        food_review_id: fr.food_review_id,
+        food_name: fr.food_name,
+        price: fr.price,
+        rating: fr.rating,
+        comment: fr.comment ?? '',
+      })),
     })
     setReviewModalVisible(true)
   }
@@ -213,53 +233,61 @@ export default function RestaurantDetailScreen() {
     experience_rating: number
     comment: string
     visited_at?: string
+    images: string[]
+    food_items: FoodItemEntry[]
   }) => {
+    // Update restaurant review
     await apiClient.put('/restaurant/reviews', {
       review_id: editingReview!.review_id,
-      ...data,
+      cleanliness_rating: data.cleanliness_rating,
+      experience_rating: data.experience_rating,
+      comment: data.comment,
+      ...(data.visited_at ? { visited_at: data.visited_at } : {}),
     })
+
+    const existingFoodIds = new Set(
+      (editingReview!.food_items ?? [])
+        .map((fi) => fi.food_review_id)
+        .filter(Boolean) as string[]
+    )
+    const updatedFoodIds = new Set<string>()
+
+    for (const item of data.food_items) {
+      if (item.food_review_id) {
+        // Update existing food review
+        updatedFoodIds.add(item.food_review_id)
+        await apiClient.put('/restaurant/reviews/food', {
+          food_review_id: item.food_review_id,
+          food_name: item.food_name,
+          price: item.price,
+          rating: item.rating,
+          comment: item.comment,
+          ...(data.visited_at ? { visited_at: data.visited_at } : {}),
+        })
+      } else {
+        // Create new food review
+        await apiClient.post('/restaurant/reviews/food', {
+          restaurant_id: id,
+          food_name: item.food_name,
+          price: item.price,
+          rating: item.rating,
+          comment: item.comment,
+          ...(data.visited_at ? { visited_at: data.visited_at } : {}),
+        })
+      }
+    }
+
+    // Delete food reviews that were removed
+    for (const oldId of existingFoodIds) {
+      if (!updatedFoodIds.has(oldId)) {
+        await apiClient.delete(`/restaurant/reviews/food/${oldId}`)
+      }
+    }
+
     setReviewModalVisible(false)
     setEditingReview(null)
     fetchData()
   }
-
-  const handleEditFoodReview = (review: FoodReview) => {
-    setEditingFoodReview({
-      food_review_id: review.food_review_id,
-      food_name: review.food_name,
-      price: review.price,
-      rating: review.rating,
-      comment: review.comment,
-      visited_at: review.visited_at,
-    })
-    setFoodReviewModalVisible(true)
-  }
-
-  const handleUpdateFoodReview = async (data: {
-    food_name: string
-    price: number
-    rating: number
-    comment: string
-    images: string[]
-    visited_at?: string
-  }) => {
-    await apiClient.put('/restaurant/reviews/food', {
-      food_review_id: editingFoodReview!.food_review_id,
-      food_name: data.food_name,
-      price: data.price,
-      rating: data.rating,
-      comment: data.comment,
-      ...(data.visited_at ? { visited_at: data.visited_at } : {}),
-    })
-    setFoodReviewModalVisible(false)
-    setEditingFoodReview(null)
-    fetchData()
-  }
-
-  const userHasReview = useMemo(
-    () => !!user && reviews.some((r) => r.user_id === user.user_id),
-    [reviews, user],
-  )
 
   const foodAvg = useMemo(() => {
     if (foodReviews.length === 0) return null
@@ -312,7 +340,7 @@ export default function RestaurantDetailScreen() {
                 {foodAvg.toFixed(1)}
               </Text>
               <Text style={styles.statsSummaryLabel}>
-                ({foodReviews.length} {foodReviews.length === 1 ? t.rating.toLowerCase() : t.sectionFoodReviews.toLowerCase()})
+                ({foodReviews.length} {foodReviews.length === 1 ? t.rating.toLowerCase() : t.foodItems.toLowerCase()})
               </Text>
             </View>
           )}
@@ -336,40 +364,11 @@ export default function RestaurantDetailScreen() {
               <ReviewCard
                 key={review.review_id}
                 review={review}
-                isOwn={!!user && review.user_id === user.user_id}
-                onEdit={handleEditReview}
-                onDelete={handleDeleteReview}
-              />
-            ))
-          )}
-        </View>
-
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{t.sectionFoodReviews}</Text>
-            {userHasReview ? (
-              <Pressable
-                style={styles.addButton}
-                onPress={() => setFoodReviewModalVisible(true)}
-              >
-                <PlusIcon size={16} color={colors.text} weight="bold" />
-                <Text style={styles.addButtonText}>{t.add}</Text>
-              </Pressable>
-            ) : (
-              <Text style={styles.hintText}>{t.foodReviewRequiresReview}</Text>
-            )}
-          </View>
-          {foodReviews.length === 0 ? (
-            <Text style={styles.emptyText}>{t.emptyFoodReviews}</Text>
-          ) : (
-            foodReviews.map((review) => (
-              <FoodReviewCard
-                key={review.food_review_id}
-                review={review}
+                foodReviews={foodReviewsByUser.get(review.user_id) ?? []}
                 isOwn={!!user && review.user_id === user.user_id}
                 imagesLoading={imagesLoading}
-                onEdit={handleEditFoodReview}
-                onDelete={handleDeleteFoodReview}
+                onEdit={handleEditReview}
+                onDelete={handleDeleteReview}
               />
             ))
           )}
@@ -383,17 +382,10 @@ export default function RestaurantDetailScreen() {
         onSubmit={editingReview ? handleUpdateReview : handleAddReview}
       />
 
-      <AddFoodReviewModal
-        visible={foodReviewModalVisible}
-        initialValues={editingFoodReview}
-        onClose={() => { setFoodReviewModalVisible(false); setEditingFoodReview(null) }}
-        onSubmit={editingFoodReview ? handleUpdateFoodReview : handleAddFoodReview}
-      />
-
       <ConfirmModal
         visible={!!confirmDelete}
-        title={confirmDelete?.type === 'review' ? t.confirmDeleteReview : t.confirmDeleteFoodReview}
-        message={confirmDelete?.type === 'review' ? t.confirmDeleteReview : t.confirmDeleteFoodReview}
+        title={t.confirmDeleteReview}
+        message={t.confirmDeleteReview}
         confirmLabel={t.delete}
         cancelLabel={t.cancel}
         onConfirm={executeDelete}

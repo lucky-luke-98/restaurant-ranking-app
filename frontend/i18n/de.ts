@@ -64,13 +64,9 @@ const de: Translations = {
   // Restaurant Detail
   restaurantsSlash: (name: string) => `Restaurants / ${name}`,
   sectionReviews: 'Bewertungen',
-  sectionFoodReviews: 'Essensbewertungen',
   emptyReviews: 'Noch keine Bewertungen.',
-  emptyFoodReviews: 'Noch keine Essensbewertungen.',
   restaurantNotFound: 'Restaurant nicht gefunden.',
   confirmDeleteReview: 'Diese Bewertung l\u00F6schen?',
-  confirmDeleteFoodReview: 'Diese Essensbewertung l\u00F6schen?',
-  foodReviewRequiresReview: 'Erst eine Restaurant Bewertung abgeben',
 
   // Map
   mapVisited: 'Besucht',
@@ -79,7 +75,7 @@ const de: Translations = {
   // Review Card
   visited: (date: string) => `Besucht am ${date}`,
   cleanliness: 'Sauberkeit',
-  experience: 'Erlebnis',
+  ambiance: 'Ambiente',
   rating: 'Bewertung',
 
   // Add Restaurant Modal
@@ -105,10 +101,8 @@ const de: Translations = {
   edit: 'Bearbeiten',
   edited: 'bearbeitet',
   editReviewTitle: 'Bewertung bearbeiten',
-  editFoodReviewTitle: 'Essensbewertung bearbeiten',
   saveChanges: '\u00C4nderungen speichern',
   failedUpdateReview: 'Bewertung konnte nicht aktualisiert werden',
-  failedUpdateFoodReview: 'Essensbewertung konnte nicht aktualisiert werden',
 
   // Add Review Modal
   addReviewTitle: 'Bewertung hinzuf\u00FCgen',
@@ -119,8 +113,12 @@ const de: Translations = {
   submitReview: 'Bewertung absenden',
   failedSubmitReview: 'Bewertung konnte nicht gesendet werden',
 
-  // Add Food Review Modal
-  addFoodReviewTitle: 'Essensbewertung hinzuf\u00FCgen',
+  // Food Items
+  foodItems: 'Gerichte',
+  foodItemsHint: 'Optional Gerichte hinzuf\u00FCgen, die du probiert hast.',
+  showFoodItems: (count: number) => `Gerichte anzeigen (${count})`,
+  hideFoodItems: 'Gerichte ausblenden',
+  visitedAt: (date: string) => `Besucht am: ${date}`,
   foodName: 'Gericht',
   foodNamePlaceholder: 'z.B. Pizza Margherita',
   priceLabel: 'Preis (\u20AC)',
@@ -129,8 +127,6 @@ const de: Translations = {
   photosOptional: 'Fotos (optional)',
   gallery: 'Galerie',
   camera: 'Kamera',
-  submitFoodReview: 'Essensbewertung absenden',
-  failedSubmitFoodReview: 'Essensbewertung konnte nicht gesendet werden',
 
   // Confirm Modal
   confirmLogout: 'Abmelden?',

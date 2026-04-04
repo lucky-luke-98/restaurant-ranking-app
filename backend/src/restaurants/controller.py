@@ -61,6 +61,7 @@ from src.restaurants.services import (
     get_food_review_by_id,
     update_food_review,
     delete_food_review,
+    get_images_by_review,
     get_images_by_food_review,
     get_food_review_stats,
     create_wishlist_entry,
@@ -105,7 +106,8 @@ async def create_restaurant(
 ) -> CreateRestaurantResponse:
     """Endpoint to create a restaurant from a Google Place ID."""
     try:
-        res_id = await to_thread(create_one_restaurant, request=request)
+        user_id = current_user["user_id"]
+        res_id = await to_thread(create_one_restaurant, request=request, user_id=user_id)
         if res_id:
             return CreateRestaurantResponse(restaurant_id=res_id, success=True)
         raise Exception("Error while creating one restaurant list entry.")
@@ -162,9 +164,19 @@ async def remove_restaurant(
 ) -> DeleteRestaurantResponse:
     """Endpoint to delete a restaurant by ID."""
     try:
+        restaurant = await to_thread(
+            get_restaurant_by_id,
+            request=GetRestaurantByIdRequest(restaurant_id=restaurant_id),
+        )
+        if not restaurant:
+            raise HTTPException(status_code=404, detail="Restaurant not found.")
+        if current_user.get("role") != "admin":
+            enforce_owner(current_user, restaurant.get("created_by", ""))
         request = DeleteRestaurantRequest(restaurant_id=restaurant_id)
         success = await to_thread(delete_restaurant, request=request)
         return DeleteRestaurantResponse(success=success)
+    except HTTPException:
+        raise
     except Exception as exp:
         raise HTTPException(status_code=500, detail=str(exp))
 
@@ -317,6 +329,21 @@ async def remove_food_review(
         return DeleteFoodReviewResponse(success=success)
     except HTTPException:
         raise
+    except Exception as exp:
+        raise HTTPException(status_code=500, detail=str(exp))
+
+
+# ==================== review images ==================== #
+
+@router.get("/reviews/{review_id}/images")
+async def get_review_images(
+    review_id: str,
+    current_user: dict = Depends(get_current_user),
+) -> dict:
+    """Endpoint to get all images for a restaurant review."""
+    try:
+        images = await to_thread(get_images_by_review, review_id=review_id)
+        return {"images": images}
     except Exception as exp:
         raise HTTPException(status_code=500, detail=str(exp))
 
