@@ -11,10 +11,6 @@ export function setAccessToken(token: string | null) {
   _accessToken = token;
 }
 
-export function getAccessToken(): string | null {
-  return _accessToken;
-}
-
 type RequestOptions = Omit<RequestInit, "method" | "body"> & {
   params?: Record<string, string>;
 };

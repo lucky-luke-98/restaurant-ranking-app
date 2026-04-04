@@ -1,7 +1,8 @@
+import re
 from datetime import date, datetime, timezone
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ==================== entities ==================== #
@@ -57,11 +58,20 @@ class VisitedEntry(BaseModel):
 
 # ==================== requests ==================== #
 
+_PLACE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{20,}$")
+
+
 class CreateRestaurantRequest(BaseModel):
     google_place_id: str = Field(..., description="The Google Place ID of the restaurant.")
 
+    @field_validator("google_place_id")
+    @classmethod
+    def validate_google_place_id(cls, v: str) -> str:
+        if not _PLACE_ID_RE.match(v):
+            raise ValueError("Invalid Google Place ID format.")
+        return v
+
 class CreateRestaurantReviewRequest(BaseModel):
-    user_id: str = Field(..., description="ID of the user submitting the review.")
     restaurant_id: str = Field(..., description="ID of the restaurant being reviewed.")
     cleanliness_rating: float = Field(..., ge=0.0, le=10.0, description="Cleanliness rating given by the user (1 to 10).")
     experience_rating: float = Field(..., ge=0.0, le=10.0, description="Overall experience rating given by the user (1 to 10).")
@@ -69,7 +79,6 @@ class CreateRestaurantReviewRequest(BaseModel):
     visited_at: date | None = Field(None, description="Optional date when the restaurant was visited.")
 
 class CreateFoodReviewRequest(BaseModel):
-    user_id: str = Field(..., description="ID of the user submitting the food review.")
     restaurant_id: str = Field(..., description="ID of the restaurant the food belongs to.")
     food_name: str = Field(..., description="Name of the food item being reviewed by the user.")
     price: float = Field(..., gt=0.0, description="The price of the food.")
@@ -79,8 +88,7 @@ class CreateFoodReviewRequest(BaseModel):
     visited_at: date | None = Field(None, description="Optional date when the restaurant was visited.")
 
 class CreateWishlistEntryRequest(BaseModel):
-    user_id: str = Field(..., description="ID of the user submitting the review.")
-    restaurant_id: str = Field(..., description="ID of the restaurant being reviewed.")
+    restaurant_id: str = Field(..., description="ID of the restaurant.")
 
 class GetFoodReviewsByRestaurantRequest(BaseModel):
     restaurant_id: str = Field(..., description="ID of the restaurant to get food reviews for.")
@@ -95,10 +103,10 @@ class GetReviewsByRestaurantRequest(BaseModel):
     restaurant_id: str = Field(..., description="ID of the restaurant to get reviews for.")
 
 class GetReviewedRestaurantIdsByUserRequest(BaseModel):
-    user_id: str = Field(..., description="ID of the user to get reviewed restaurant IDs for.")
+    user_id: str
 
 class GetWishlistByUserRequest(BaseModel):
-    user_id: str = Field(..., description="ID of the user to get wishlist entries for.")
+    user_id: str
 
 class DeleteRestaurantRequest(BaseModel):
     restaurant_id: str = Field(..., description="ID of the restaurant to delete.")
@@ -110,11 +118,10 @@ class DeleteWishlistEntryRequest(BaseModel):
     entry_id: str = Field(..., description="ID of the wishlist entry to delete.")
 
 class CreateVisitedEntryRequest(BaseModel):
-    user_id: str = Field(..., description="ID of the user.")
     restaurant_id: str = Field(..., description="ID of the restaurant.")
 
 class GetVisitedByUserRequest(BaseModel):
-    user_id: str = Field(..., description="ID of the user.")
+    user_id: str
 
 class DeleteVisitedEntryRequest(BaseModel):
     entry_id: str = Field(..., description="ID of the visited entry to delete.")

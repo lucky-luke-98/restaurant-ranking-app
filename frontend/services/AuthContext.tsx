@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
 import { Platform } from 'react-native'
+import * as SecureStore from 'expo-secure-store'
 import apiClient, { setAccessToken } from './apiClient'
 
 interface User {
@@ -19,30 +20,34 @@ interface AuthContextValue {
   loading: boolean
   login: (mail: string, password: string) => Promise<void>
   register: (firstName: string, lastName: string, mail: string, password: string) => Promise<void>
-  logout: () => void
+  logout: () => Promise<void>
 }
 
-const COOKIE_NAME = 'access_token'
+const TOKEN_KEY = 'access_token'
 
-function saveToken(token: string) {
+async function saveToken(token: string) {
   setAccessToken(token)
   if (Platform.OS === 'web') {
-    document.cookie = `${COOKIE_NAME}=${token}; path=/; max-age=${60 * 60 * 24}; SameSite=Lax`
+    document.cookie = `${TOKEN_KEY}=${token}; path=/; max-age=${60 * 60 * 24}; SameSite=Strict; Secure`
+  } else {
+    await SecureStore.setItemAsync(TOKEN_KEY, token)
   }
 }
 
-function loadToken(): string | null {
+async function loadToken(): Promise<string | null> {
   if (Platform.OS === 'web') {
-    const match = document.cookie.match(new RegExp(`(?:^|; )${COOKIE_NAME}=([^;]*)`))
+    const match = document.cookie.match(new RegExp(`(?:^|; )${TOKEN_KEY}=([^;]*)`))
     return match ? match[1] : null
   }
-  return null
+  return SecureStore.getItemAsync(TOKEN_KEY)
 }
 
-function clearToken() {
+async function clearToken() {
   setAccessToken(null)
   if (Platform.OS === 'web') {
-    document.cookie = `${COOKIE_NAME}=; path=/; max-age=0`
+    document.cookie = `${TOKEN_KEY}=; path=/; max-age=0`
+  } else {
+    await SecureStore.deleteItemAsync(TOKEN_KEY)
   }
 }
 
@@ -53,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   const fetchMe = useCallback(async () => {
-    const stored = loadToken()
+    const stored = await loadToken()
     if (!stored) {
       setLoading(false)
       return
@@ -63,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const data = await apiClient.get<User>('/users/me')
       setUser(data)
     } catch {
-      clearToken()
+      await clearToken()
       setUser(null)
     } finally {
       setLoading(false)
@@ -76,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (mail: string, password: string) => {
     const data = await apiClient.post<AuthTokenResponse>('/users/login', { mail, password })
-    saveToken(data.access_token)
+    await saveToken(data.access_token)
     setUser({ user_id: data.user_id, mail: data.mail, first_name: data.first_name, last_name: data.last_name, role: data.role })
   }
 
@@ -87,12 +92,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mail,
       password,
     })
-    saveToken(data.access_token)
+    await saveToken(data.access_token)
     setUser({ user_id: data.user_id, mail: data.mail, first_name: data.first_name, last_name: data.last_name, role: data.role })
   }
 
-  const logout = () => {
-    clearToken()
+  const logout = async () => {
+    await clearToken()
     setUser(null)
   }
 

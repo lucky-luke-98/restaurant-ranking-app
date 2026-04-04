@@ -2,13 +2,16 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from loguru import logger
+from slowapi.errors import RateLimitExceeded
 
 from src.utils.logger import configure_logger
 configure_logger()
 from src.config import settings
 from src.users import user_router
 from src.restaurants import restaurant_router
+from src.utils.rate_limit import limiter
 from src.db.mongo_client import initialize_mongo_client, close_mongo_client
 
 
@@ -27,6 +30,15 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="ResRank Backend", lifespan=lifespan)
+
+app.state.limiter = limiter
+app.add_exception_handler(
+    RateLimitExceeded,
+    lambda request, exc: JSONResponse(
+        status_code=429,
+        content={"detail": "Rate limit exceeded. Please try again later."},
+    ),
+)
 
 app.add_middleware(
     CORSMiddleware,

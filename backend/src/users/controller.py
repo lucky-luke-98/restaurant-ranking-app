@@ -1,32 +1,31 @@
 from asyncio import to_thread
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
+from slowapi.util import get_remote_address
 
 from src.users.models import (
     GetAllUsersResponse,
-    CreateUserRequest,
-    CreateUserResponse,
     RegisterRequest,
     LoginRequest,
     AuthResponse,
 )
 from src.users.services import (
     get_all_users_from_db,
-    create_one_user,
     register_user,
     authenticate_user,
 )
 from src.utils.auth import create_access_token, get_current_user, require_admin
-
+from src.utils.rate_limit import limiter
 
 router = APIRouter()
 
 
 @router.post("/register")
-async def register(request: RegisterRequest) -> AuthResponse:
+@limiter.limit("2/day", key_func=get_remote_address)
+async def register(request: Request, data: RegisterRequest) -> AuthResponse:
     """Register a new user and return a JWT token."""
     try:
-        user = await to_thread(register_user, request=request)
+        user = await to_thread(register_user, request=data)
     except ValueError as exp:
         raise HTTPException(status_code=409, detail=str(exp))
     except Exception as exp:
@@ -48,10 +47,11 @@ async def register(request: RegisterRequest) -> AuthResponse:
 
 
 @router.post("/login")
-async def login(request: LoginRequest) -> AuthResponse:
+@limiter.limit("5/day", key_func=get_remote_address)
+async def login(request: Request, data: LoginRequest) -> AuthResponse:
     """Authenticate and return a JWT token."""
     try:
-        user = await to_thread(authenticate_user, request=request)
+        user = await to_thread(authenticate_user, request=data)
     except ValueError as exp:
         raise HTTPException(status_code=401, detail=str(exp))
     except Exception as exp:
@@ -100,18 +100,6 @@ async def get_all_users(current_user: dict = Depends(require_admin)) -> GetAllUs
         all_users = await to_thread(get_all_users_from_db)
         return GetAllUsersResponse(
             all_users=all_users
-        )
-    except Exception as exp:
-        raise HTTPException(status_code=500, detail=str(exp))
-
-
-@router.post("/")
-async def create_user(user_data: CreateUserRequest) -> CreateUserResponse:
-    """Endpoint to set a new user in the database."""
-    try:
-        success = await to_thread(create_one_user, request=user_data)
-        return CreateUserResponse(
-            success=success
         )
     except Exception as exp:
         raise HTTPException(status_code=500, detail=str(exp))

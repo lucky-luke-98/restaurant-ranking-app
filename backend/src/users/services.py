@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from src.db.mongo_client import get_mongo_collection
 from src.utils.wrappers import service
 from src.utils.auth import hash_password, verify_password
@@ -57,7 +59,9 @@ def register_user(request: RegisterRequest) -> User:
         mail=request.mail,
         password_hash=hash_password(request.password),
     )
-    collection.insert_one(user.model_dump())
+    doc = user.model_dump()
+    doc["last_logged_in"] = datetime.now(timezone.utc).isoformat()
+    collection.insert_one(doc)
     return user
 
 
@@ -72,7 +76,13 @@ def authenticate_user(request: LoginRequest) -> User:
     if not doc or not verify_password(request.password, doc.get("password_hash", "")):
         raise ValueError("Invalid email or password.")
 
+    collection.update_one(
+        {"user_id": doc["user_id"]},
+        {"$set": {"last_logged_in": datetime.now(timezone.utc).isoformat()}},
+    )
+
     doc.pop("_id", None)
+    doc.pop("last_logged_in", None)
     return User(**doc)
 
 

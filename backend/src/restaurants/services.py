@@ -179,15 +179,15 @@ def delete_restaurant(request: DeleteRestaurantRequest) -> bool:
 # ==================== reviews ==================== #
 
 @service
-def create_one_restaurant_review(request: CreateRestaurantReviewRequest) -> str | None:
+def create_one_restaurant_review(request: CreateRestaurantReviewRequest, user_id: str) -> str | None:
     """
     Creates one restaurant review entry based on provided information.
     """
-    if not verify_user_entry(request.user_id):
+    if not verify_user_entry(user_id):
         raise ValueError("User ID not found in the db. Please set the user first.")
 
     collection = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
-    review = RestaurantReview(**request.model_dump())
+    review = RestaurantReview(**request.model_dump(), user_id=user_id)
     result = collection.insert_one(review.model_dump(mode="json"))
     if result.acknowledged:
         return review.review_id
@@ -246,17 +246,17 @@ def get_reviewed_restaurant_ids_by_user(request: GetReviewedRestaurantIdsByUserR
 # ==================== food reviews ==================== #
 
 @service
-def create_food_review(request: CreateFoodReviewRequest) -> str | None:
+def create_food_review(request: CreateFoodReviewRequest, user_id: str) -> str | None:
     """
     Creates a food review entry based on provided information.
     Also stores any attached images in the images collection.
     """
-    if not verify_user_entry(request.user_id):
+    if not verify_user_entry(user_id):
         raise ValueError("User ID not found in the db. Please set the user first.")
 
     collection = get_mongo_collection(collection_name=settings.mongo_food_reviews_collection)
     review_data = request.model_dump(exclude={"images"})
-    food_review = FoodReview(**review_data)
+    food_review = FoodReview(**review_data, user_id=user_id)
     result = collection.insert_one(food_review.model_dump(mode="json"))
     if not result.acknowledged:
         return None
@@ -330,15 +330,15 @@ def get_images_by_food_review(food_review_id: str) -> list[dict]:
 # ==================== wishlist ==================== #
 
 @service
-def create_wishlist_entry(request: CreateWishlistEntryRequest) -> str | None:
+def create_wishlist_entry(request: CreateWishlistEntryRequest, user_id: str) -> str | None:
     """
     Creates one restaurant wishlist entry based on provided information.
     """
-    if not verify_user_entry(request.user_id):
+    if not verify_user_entry(user_id):
         raise ValueError("User ID not found in the db. Please set the user first.")
 
     collection = get_mongo_collection(collection_name=settings.mongo_wishlist_collection)
-    wishlist_entry = WishlistEntry(**request.model_dump())
+    wishlist_entry = WishlistEntry(**request.model_dump(), user_id=user_id)
     result = collection.insert_one(wishlist_entry.model_dump())
     if result.acknowledged:
         return wishlist_entry.entry_id
@@ -389,19 +389,19 @@ def delete_wishlist_entry_by_user_and_restaurant(user_id: str, restaurant_id: st
 # ==================== visited ==================== #
 
 @service
-def create_visited_entry(request: CreateVisitedEntryRequest) -> str | None:
+def create_visited_entry(request: CreateVisitedEntryRequest, user_id: str) -> str | None:
     """
     Creates a visited entry for a user and restaurant.
     """
-    if not verify_user_entry(request.user_id):
+    if not verify_user_entry(user_id):
         raise ValueError("User ID not found in the db. Please set the user first.")
 
     collection = get_mongo_collection(collection_name=settings.mongo_visited_collection)
-    existing = collection.find_one({"user_id": request.user_id, "restaurant_id": request.restaurant_id})
+    existing = collection.find_one({"user_id": user_id, "restaurant_id": request.restaurant_id})
     if existing:
         return existing["entry_id"]
 
-    visited_entry = VisitedEntry(**request.model_dump())
+    visited_entry = VisitedEntry(**request.model_dump(), user_id=user_id)
     result = collection.insert_one(visited_entry.model_dump())
     if result.acknowledged:
         return visited_entry.entry_id
@@ -441,11 +441,11 @@ def delete_visited_entry(request: DeleteVisitedEntryRequest) -> bool:
 
 
 @service
-def move_wishlist_to_visited_entry(request: CreateVisitedEntryRequest) -> str | None:
+def move_wishlist_to_visited_entry(request: CreateVisitedEntryRequest, user_id: str) -> str | None:
     """
     Atomically moves a restaurant from wishlist to visited using a transaction.
     """
-    if not verify_user_entry(request.user_id):
+    if not verify_user_entry(user_id):
         raise ValueError("User ID not found in the db. Please set the user first.")
 
     client = get_mongo_client()
@@ -455,18 +455,18 @@ def move_wishlist_to_visited_entry(request: CreateVisitedEntryRequest) -> str | 
     with client.start_session() as session:
         with session.start_transaction():
             existing = visited_col.find_one(
-                {"user_id": request.user_id, "restaurant_id": request.restaurant_id},
+                {"user_id": user_id, "restaurant_id": request.restaurant_id},
                 session=session,
             )
             if existing:
                 entry_id = existing["entry_id"]
             else:
-                visited_entry = VisitedEntry(**request.model_dump())
+                visited_entry = VisitedEntry(**request.model_dump(), user_id=user_id)
                 visited_col.insert_one(visited_entry.model_dump(), session=session)
                 entry_id = visited_entry.entry_id
 
             wishlist_col.delete_one(
-                {"user_id": request.user_id, "restaurant_id": request.restaurant_id},
+                {"user_id": user_id, "restaurant_id": request.restaurant_id},
                 session=session,
             )
     return entry_id

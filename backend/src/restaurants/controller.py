@@ -1,6 +1,6 @@
 from asyncio import to_thread
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 
 from src.restaurants.models import (
     CreateRestaurantRequest,
@@ -65,7 +65,7 @@ from src.restaurants.services import (
     move_wishlist_to_visited_entry,
 )
 from src.utils.auth import get_current_user, enforce_owner
-
+from src.utils.rate_limit import limiter
 
 router = APIRouter()
 
@@ -73,7 +73,9 @@ router = APIRouter()
 # ==================== google places search ==================== #
 
 @router.get("/search")
+@limiter.limit("10/hour")
 async def search_restaurants(
+    request: Request,
     query: str,
     current_user: dict = Depends(get_current_user),
 ) -> SearchPlacesResponse:
@@ -151,8 +153,8 @@ async def create_review(
 ) -> CreateRestaurantReviewResponse:
     """Endpoint to create a restaurant review."""
     try:
-        enforce_owner(current_user, request.user_id)
-        review_id = await to_thread(create_one_restaurant_review, request=request)
+        user_id = current_user["user_id"]
+        review_id = await to_thread(create_one_restaurant_review, request=request, user_id=user_id)
         return CreateRestaurantReviewResponse(success=review_id is not None)
     except Exception as exp:
         raise HTTPException(status_code=500, detail=str(exp))
@@ -172,14 +174,13 @@ async def get_reviews(
         raise HTTPException(status_code=500, detail=str(exp))
 
 
-@router.get("/reviews/user/{user_id}")
+@router.get("/reviews/user/me")
 async def get_reviewed_restaurants(
-    user_id: str,
     current_user: dict = Depends(get_current_user),
 ) -> GetReviewedRestaurantIdsByUserResponse:
-    """Endpoint to get all restaurant IDs that a user has reviewed."""
+    """Endpoint to get all restaurant IDs that the current user has reviewed."""
     try:
-        enforce_owner(current_user, user_id)
+        user_id = current_user["user_id"]
         request = GetReviewedRestaurantIdsByUserRequest(user_id=user_id)
         restaurant_ids = await to_thread(get_reviewed_restaurant_ids_by_user, request=request)
         return GetReviewedRestaurantIdsByUserResponse(restaurant_ids=restaurant_ids)
@@ -216,8 +217,8 @@ async def create_food_review_entry(
 ) -> CreateFoodReviewResponse:
     """Endpoint to create a food review."""
     try:
-        enforce_owner(current_user, request.user_id)
-        food_review_id = await to_thread(create_food_review, request=request)
+        user_id = current_user["user_id"]
+        food_review_id = await to_thread(create_food_review, request=request, user_id=user_id)
         return CreateFoodReviewResponse(success=food_review_id is not None)
     except Exception as exp:
         raise HTTPException(status_code=500, detail=str(exp))
@@ -281,21 +282,20 @@ async def create_wishlist(
 ) -> CreateWishlistEntryResponse:
     """Endpoint to create a wishlist entry."""
     try:
-        enforce_owner(current_user, request.user_id)
-        entry_id = await to_thread(create_wishlist_entry, request=request)
+        user_id = current_user["user_id"]
+        entry_id = await to_thread(create_wishlist_entry, request=request, user_id=user_id)
         return CreateWishlistEntryResponse(success=entry_id is not None)
     except Exception as exp:
         raise HTTPException(status_code=500, detail=str(exp))
 
 
-@router.get("/wishlist/{user_id}")
+@router.get("/wishlist/me")
 async def get_wishlist(
-    user_id: str,
     current_user: dict = Depends(get_current_user),
 ) -> GetWishlistByUserResponse:
-    """Endpoint to get all wishlist entries for a user."""
+    """Endpoint to get all wishlist entries for the current user."""
     try:
-        enforce_owner(current_user, user_id)
+        user_id = current_user["user_id"]
         request = GetWishlistByUserRequest(user_id=user_id)
         entries = await to_thread(get_wishlist_by_user, request=request)
         return GetWishlistByUserResponse(entries=entries)
@@ -332,8 +332,8 @@ async def create_visited(
 ) -> CreateVisitedEntryResponse:
     """Endpoint to mark a restaurant as visited."""
     try:
-        enforce_owner(current_user, request.user_id)
-        entry_id = await to_thread(create_visited_entry, request=request)
+        user_id = current_user["user_id"]
+        entry_id = await to_thread(create_visited_entry, request=request, user_id=user_id)
         return CreateVisitedEntryResponse(success=entry_id is not None)
     except Exception as exp:
         raise HTTPException(status_code=500, detail=str(exp))
@@ -346,21 +346,20 @@ async def move_wishlist_to_visited(
 ) -> CreateVisitedEntryResponse:
     """Moves a restaurant from wishlist to visited: creates visited entry and removes wishlist entry."""
     try:
-        enforce_owner(current_user, request.user_id)
-        entry_id = await to_thread(move_wishlist_to_visited_entry, request=request)
+        user_id = current_user["user_id"]
+        entry_id = await to_thread(move_wishlist_to_visited_entry, request=request, user_id=user_id)
         return CreateVisitedEntryResponse(success=entry_id is not None)
     except Exception as exp:
         raise HTTPException(status_code=500, detail=str(exp))
 
 
-@router.get("/visited/{user_id}")
+@router.get("/visited/me")
 async def get_visited(
-    user_id: str,
     current_user: dict = Depends(get_current_user),
 ) -> GetVisitedByUserResponse:
-    """Endpoint to get all visited entries for a user."""
+    """Endpoint to get all visited entries for the current user."""
     try:
-        enforce_owner(current_user, user_id)
+        user_id = current_user["user_id"]
         request = GetVisitedByUserRequest(user_id=user_id)
         entries = await to_thread(get_visited_by_user, request=request)
         return GetVisitedByUserResponse(entries=entries)

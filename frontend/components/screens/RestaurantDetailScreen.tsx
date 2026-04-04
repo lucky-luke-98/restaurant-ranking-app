@@ -155,7 +155,6 @@ export default function RestaurantDetailScreen() {
     visited_at?: string
   }) => {
     await apiClient.post('/restaurant/reviews', {
-      user_id: user!.user_id,
       restaurant_id: id,
       ...data,
     })
@@ -181,7 +180,6 @@ export default function RestaurantDetailScreen() {
     visited_at?: string
   }) => {
     await apiClient.post('/restaurant/reviews/food', {
-      user_id: user!.user_id,
       restaurant_id: id,
       ...data,
     })

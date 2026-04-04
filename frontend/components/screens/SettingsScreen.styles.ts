@@ -53,4 +53,41 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
   toggleTextActive: {
     color: colors.background,
   },
+  adminCard: {
+    backgroundColor: colors.backgroundCard,
+    borderRadius: 12,
+    padding: 12,
+    gap: 8,
+  },
+  adminHeaderRow: {
+    flexDirection: 'row' as const,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.textFaint + '33',
+  },
+  adminRow: {
+    flexDirection: 'row' as const,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.textFaint + '15',
+  },
+  adminCell: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.text,
+  },
+  adminHeaderCell: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: '700' as const,
+    color: colors.textFaint,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.3,
+  },
+  adminStatusText: {
+    color: colors.textFaint,
+    fontSize: 13,
+    textAlign: 'center' as const,
+    paddingVertical: 12,
+  },
 })

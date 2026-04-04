@@ -126,6 +126,17 @@ const de: Translations = {
   settingsTheme: 'Erscheinungsbild',
   themeDark: 'Dunkel',
   themeLight: 'Hell',
+
+  // Admin Panel
+  adminPanel: 'Admin-Bereich',
+  adminUsers: 'Benutzer',
+  adminName: 'Name',
+  adminEmail: 'E-Mail',
+  adminRole: 'Rolle',
+  adminLastLoggedIn: 'Letzter Login',
+  adminNever: 'Nie',
+  adminLoadingUsers: 'Benutzer werden geladen...',
+  adminFailedToLoad: 'Benutzer konnten nicht geladen werden.',
 }
 
 export default de

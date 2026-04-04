@@ -124,6 +124,17 @@ const en = {
   settingsTheme: 'Theme',
   themeDark: 'Dark',
   themeLight: 'Light',
+
+  // Admin Panel
+  adminPanel: 'Admin Panel',
+  adminUsers: 'Users',
+  adminName: 'Name',
+  adminEmail: 'Email',
+  adminRole: 'Role',
+  adminLastLoggedIn: 'Last Login',
+  adminNever: 'Never',
+  adminLoadingUsers: 'Loading users...',
+  adminFailedToLoad: 'Failed to load users.',
 }
 
 export type Translations = {

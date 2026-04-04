@@ -11,6 +11,9 @@ PyJWT
 passlib[bcrypt]
 bcrypt==4.0.1
 
+# rate limiting
+slowapi
+
 # convenience stuff
 loguru
 dotenv

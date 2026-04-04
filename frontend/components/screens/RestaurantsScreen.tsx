@@ -72,8 +72,8 @@ export default function RestaurantsScreen() {
     setError(null)
     Promise.all([
       apiClient.get<{ restaurants: Restaurant[] }>('/restaurant/'),
-      apiClient.get<{ entries: ListEntry[] }>(`/restaurant/visited/${user!.user_id}`),
-      apiClient.get<{ entries: ListEntry[] }>(`/restaurant/wishlist/${user!.user_id}`),
+      apiClient.get<{ entries: ListEntry[] }>('/restaurant/visited/me'),
+      apiClient.get<{ entries: ListEntry[] }>('/restaurant/wishlist/me'),
     ])
       .then(([restaurantsData, visitedData, wishlistData]) => {
         setRestaurants(restaurantsData.restaurants)
@@ -128,7 +128,6 @@ export default function RestaurantsScreen() {
       { google_place_id: googlePlaceId },
     )
     await apiClient.post('/restaurant/wishlist', {
-      user_id: user!.user_id,
       restaurant_id: res.restaurant_id,
     })
   }
@@ -139,14 +138,12 @@ export default function RestaurantsScreen() {
       { google_place_id: googlePlaceId },
     )
     await apiClient.post('/restaurant/visited', {
-      user_id: user!.user_id,
       restaurant_id: res.restaurant_id,
     })
   }
 
   const handleAddVisitedFromWishlist = async (restaurantId: string) => {
     await apiClient.post('/restaurant/visited/from-wishlist', {
-      user_id: user!.user_id,
       restaurant_id: restaurantId,
     })
   }
