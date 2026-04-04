@@ -5,16 +5,17 @@ import {
   FlatList,
   ActivityIndicator,
   Pressable,
-  Alert,
-  Platform,
+  RefreshControl,
 } from 'react-native'
-import { Stack } from 'expo-router'
-import { PlusIcon, CheckCircleIcon, HeartIcon, TrashIcon } from 'phosphor-react-native'
+import { Tabs } from 'expo-router'
+import { PlusIcon, CheckCircleIcon, HeartIcon, ForkKnifeIcon } from 'phosphor-react-native'
 import apiClient, { ApiError } from '@/services/apiClient'
 import { useAuth } from '@/services/AuthContext'
 import RestaurantCard from '@/components/cards/RestaurantCard'
 import AddRestaurantModal from '@/components/modals/AddRestaurantModal'
 import AddVisitedModal from '@/components/modals/AddVisitedModal'
+import ConfirmModal from '@/components/modals/ConfirmModal'
+import DateInput from '@/components/inputs/DateInput'
 import { useTranslation } from '@/services/LanguageContext'
 import { useThemeColors } from '@/hooks/useThemeColors'
 import { createStyles } from './RestaurantsScreen.styles'
@@ -31,27 +32,19 @@ interface Restaurant {
   longitude: number | null
 }
 
+interface FoodReviewStatsEntry {
+  restaurant_id: string
+  count: number
+  avg_rating: number | null
+  last_visited: string | null
+}
+
 interface ListEntry {
   entry_id: string
   restaurant_id: string
 }
 
 type Tab = 'visited' | 'wishlist'
-
-function confirmDeletePlatform(
-  message: string,
-  labels: { confirm: string; cancel: string; remove: string },
-): Promise<boolean> {
-  if (Platform.OS === 'web') {
-    return Promise.resolve(window.confirm(message))
-  }
-  return new Promise((resolve) => {
-    Alert.alert(labels.confirm, message, [
-      { text: labels.cancel, style: 'cancel', onPress: () => resolve(false) },
-      { text: labels.remove, style: 'destructive', onPress: () => resolve(true) },
-    ])
-  })
-}
 
 export default function RestaurantsScreen() {
   const { user } = useAuth()
@@ -61,17 +54,22 @@ export default function RestaurantsScreen() {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([])
   const [visitedEntries, setVisitedEntries] = useState<ListEntry[]>([])
   const [wishlistEntries, setWishlistEntries] = useState<ListEntry[]>([])
+  const [foodStats, setFoodStats] = useState<Record<string, FoodReviewStatsEntry>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [addWishlistVisible, setAddWishlistVisible] = useState(false)
   const [addVisitedVisible, setAddVisitedVisible] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>('visited')
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [filterFrom, setFilterFrom] = useState('')
+  const [filterTo, setFilterTo] = useState('')
 
   const fetchAllData = useCallback(() => {
     setLoading(true)
     setError(null)
     Promise.all([
-      apiClient.get<{ restaurants: Restaurant[] }>('/restaurant/'),
+      apiClient.get<{ restaurants: Restaurant[] }>('/restaurant'),
       apiClient.get<{ entries: ListEntry[] }>('/restaurant/visited/me'),
       apiClient.get<{ entries: ListEntry[] }>('/restaurant/wishlist/me'),
     ])
@@ -79,6 +77,21 @@ export default function RestaurantsScreen() {
         setRestaurants(restaurantsData.restaurants)
         setVisitedEntries(visitedData.entries)
         setWishlistEntries(wishlistData.entries)
+
+        // Fetch food review stats for all restaurants
+        const allIds = restaurantsData.restaurants.map((r: Restaurant) => r.restaurant_id)
+        if (allIds.length > 0) {
+          const params = new URLSearchParams()
+          allIds.forEach((id: string) => params.append('restaurant_ids', id))
+          apiClient
+            .get<{ stats: FoodReviewStatsEntry[] }>(`/restaurant/food-review-stats?${params.toString()}`)
+            .then((statsData) => {
+              const map: Record<string, FoodReviewStatsEntry> = {}
+              statsData.stats.forEach((s) => { map[s.restaurant_id] = s })
+              setFoodStats(map)
+            })
+            .catch(() => {})
+        }
       })
       .catch((err) => {
         const message =
@@ -110,11 +123,20 @@ export default function RestaurantsScreen() {
   const filteredRestaurants = useMemo(
     () =>
       restaurants.filter((r) => {
-        if (activeTab === 'visited') return visitedIds.has(r.restaurant_id)
+        if (activeTab === 'visited') {
+          if (!visitedIds.has(r.restaurant_id)) return false
+          if (filterFrom || filterTo) {
+            const lastVisited = foodStats[r.restaurant_id]?.last_visited
+            if (!lastVisited) return false
+            if (filterFrom && lastVisited < filterFrom) return false
+            if (filterTo && lastVisited > filterTo) return false
+          }
+          return true
+        }
         if (activeTab === 'wishlist') return wishlistIds.has(r.restaurant_id)
         return false
       }),
-    [restaurants, visitedIds, wishlistIds, activeTab],
+    [restaurants, visitedIds, wishlistIds, activeTab, filterFrom, filterTo, foodStats],
   )
 
   const wishlistRestaurants = useMemo(
@@ -124,7 +146,7 @@ export default function RestaurantsScreen() {
 
   const handleAddToWishlist = async (googlePlaceId: string) => {
     const res = await apiClient.post<{ restaurant_id: string; success: boolean }>(
-      '/restaurant/',
+      '/restaurant',
       { google_place_id: googlePlaceId },
     )
     await apiClient.post('/restaurant/wishlist', {
@@ -134,7 +156,7 @@ export default function RestaurantsScreen() {
 
   const handleAddVisitedFromSearch = async (googlePlaceId: string) => {
     const res = await apiClient.post<{ restaurant_id: string; success: boolean }>(
-      '/restaurant/',
+      '/restaurant',
       { google_place_id: googlePlaceId },
     )
     await apiClient.post('/restaurant/visited', {
@@ -148,25 +170,31 @@ export default function RestaurantsScreen() {
     })
   }
 
-  const handleDeleteEntry = async (restaurantId: string) => {
+  const handleDeleteEntry = (restaurantId: string) => {
+    setDeleteConfirmId(restaurantId)
+  }
+
+  const executeDeleteEntry = async () => {
+    if (!deleteConfirmId) return
     const entries = activeTab === 'visited' ? visitedEntries : wishlistEntries
-    const entry = entries.find((e) => e.restaurant_id === restaurantId)
+    const entry = entries.find((e) => e.restaurant_id === deleteConfirmId)
+    setDeleteConfirmId(null)
     if (!entry) return
-
-    const label = activeTab === 'visited' ? t.visitedList : t.wishlist
-    const confirmed = await confirmDeletePlatform(
-      t.confirmRemoveFrom(label),
-      { confirm: t.confirm, cancel: t.cancel, remove: t.remove },
-    )
-    if (!confirmed) return
-
-    const path =
-      activeTab === 'visited'
-        ? `/restaurant/visited/${entry.entry_id}`
-        : `/restaurant/wishlist/${entry.entry_id}`
+    const path = activeTab === 'visited'
+      ? `/restaurant/visited/${entry.entry_id}`
+      : `/restaurant/wishlist/${entry.entry_id}`
     await apiClient.delete(path)
     fetchAllData()
   }
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true)
+    fetchAllData()
+  }, [fetchAllData])
+
+  useEffect(() => {
+    if (!loading) setRefreshing(false)
+  }, [loading])
 
   const refreshAfterAdd = () => {
     fetchAllData()
@@ -189,11 +217,11 @@ export default function RestaurantsScreen() {
 
   return (
     <View style={styles.container}>
-      <Stack.Screen
+      <Tabs.Screen
         options={{
           title: t.navRestaurants,
           headerRight: () => (
-            <Pressable onPress={openAddModal} hitSlop={8}>
+            <Pressable onPress={openAddModal} hitSlop={8} style={{ marginRight: 16 }}>
               <PlusIcon size={24} color={colors.text} weight="bold" />
             </Pressable>
           ),
@@ -223,6 +251,17 @@ export default function RestaurantsScreen() {
         })}
       </View>
 
+      {activeTab === 'visited' && (
+        <View style={styles.filterRow}>
+          <View style={styles.filterField}>
+            <DateInput label={t.filterFrom} value={filterFrom} onChange={setFilterFrom} />
+          </View>
+          <View style={styles.filterField}>
+            <DateInput label={t.filterTo} value={filterTo} onChange={setFilterTo} />
+          </View>
+        </View>
+      )}
+
       {loading ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.tint} />
@@ -233,6 +272,7 @@ export default function RestaurantsScreen() {
         </View>
       ) : filteredRestaurants.length === 0 ? (
         <View style={styles.centered}>
+          <ForkKnifeIcon size={56} color={colors.textFaint} weight="duotone" style={{ marginBottom: 16 }} />
           <Text style={styles.emptyText}>{emptyMessage}</Text>
           <Pressable style={styles.emptyAddButton} onPress={openAddModal}>
             <PlusIcon size={18} color="#fff" weight="bold" />
@@ -246,18 +286,16 @@ export default function RestaurantsScreen() {
           data={filteredRestaurants}
           keyExtractor={(item) => item.restaurant_id}
           contentContainerStyle={styles.list}
+          extraData={foodStats}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.text} />
+          }
           renderItem={({ item }) => (
-            <View style={styles.cardRow}>
-              <View style={styles.cardWrapper}>
-                <RestaurantCard restaurant={item} />
-              </View>
-              <Pressable
-                style={styles.deleteEntryButton}
-                onPress={() => handleDeleteEntry(item.restaurant_id)}
-              >
-                <TrashIcon size={18} color={colors.error} />
-              </Pressable>
-            </View>
+            <RestaurantCard
+              restaurant={item}
+              stats={foodStats[item.restaurant_id]}
+              onDelete={handleDeleteEntry}
+            />
           )}
         />
       )}
@@ -284,6 +322,16 @@ export default function RestaurantsScreen() {
         wishlistRestaurants={wishlistRestaurants}
         onSelectFromWishlist={handleAddVisitedFromWishlist}
         onSubmitFromSearch={handleAddVisitedFromSearch}
+      />
+
+      <ConfirmModal
+        visible={!!deleteConfirmId}
+        title={t.confirm}
+        message={t.confirmRemoveFrom(activeTab === 'visited' ? t.visitedList : t.wishlist)}
+        confirmLabel={t.remove}
+        cancelLabel={t.cancel}
+        onConfirm={executeDeleteEntry}
+        onCancel={() => setDeleteConfirmId(null)}
       />
     </View>
   )

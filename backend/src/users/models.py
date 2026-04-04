@@ -43,6 +43,15 @@ class GetAllUsersResponse(BaseModel):
 class CreateUserResponse(BaseModel):
     success: bool
 
+class UpdateAvatarRequest(BaseModel):
+    avatar: str = Field(..., description="Base64-encoded thumbnail image.")
+
+class AddFriendRequest(BaseModel):
+    friend_user_id: str = Field(..., description="User ID of the friend to add.")
+
+class SearchUsersResponse(BaseModel):
+    users: list[dict] = Field([], description="Matched users.")
+
 class AuthResponse(BaseModel):
     access_token: str
     user_id: str

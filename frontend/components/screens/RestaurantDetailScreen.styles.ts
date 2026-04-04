@@ -36,6 +36,24 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textMuted,
     fontSize: 14,
   },
+  statsSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+    backgroundColor: colors.backgroundCard,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+  },
+  statsSummaryValue: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  statsSummaryLabel: {
+    color: colors.textFaint,
+    fontSize: 14,
+  },
   section: {
     marginBottom: 24,
   },
@@ -67,6 +85,13 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
   emptyText: {
     color: colors.textFaint,
     fontSize: 14,
+  },
+  hintText: {
+    color: colors.textFaint,
+    fontSize: 12,
+    fontStyle: 'italic',
+    flexShrink: 1,
+    textAlign: 'right',
   },
   errorText: {
     color: colors.error,

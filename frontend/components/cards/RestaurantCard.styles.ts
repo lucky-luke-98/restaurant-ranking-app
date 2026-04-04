@@ -6,28 +6,38 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.backgroundInput,
     borderRadius: 12,
     padding: 16,
+    cursor: 'pointer' as any,
   },
   cardPressed: {
-    opacity: 0.7,
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }],
+  },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  topLeft: {
+    flex: 1,
+    marginRight: 8,
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 6,
+    gap: 8,
   },
   name: {
     color: colors.text,
     fontSize: 18,
     fontWeight: 'bold',
-    flex: 1,
-    marginRight: 8,
+    flexShrink: 1,
   },
   cuisineBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.backgroundInput,
+    backgroundColor: colors.backgroundButton,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
@@ -44,5 +54,36 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
   location: {
     color: colors.textMuted,
     fontSize: 14,
+  },
+  bottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  statsLeft: {
+    flex: 1,
+    gap: 4,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  statsRating: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  statsCount: {
+    color: colors.textFaint,
+    fontSize: 13,
+  },
+  deleteButton: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: colors.errorBackground,
   },
 })

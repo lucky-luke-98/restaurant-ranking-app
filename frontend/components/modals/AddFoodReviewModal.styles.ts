@@ -59,37 +59,24 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
     textAlignVertical: 'top',
     marginBottom: 20,
   },
-  ratingGroup: {
-    marginBottom: 20,
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.backgroundInput,
+    borderRadius: 10,
+    marginBottom: 16,
+    paddingRight: 14,
   },
-  ratingDisplay: {
+  priceInput: {
+    flex: 1,
+    padding: 14,
     color: colors.text,
-    fontWeight: 'bold',
+    fontSize: 15,
   },
-  sliderTrack: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.sliderTrack,
-    marginTop: 12,
-    marginBottom: 4,
-    justifyContent: 'center',
-  },
-  sliderFill: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    backgroundColor: colors.sliderFill,
-    borderRadius: 3,
-  },
-  sliderThumb: {
-    position: 'absolute',
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: colors.sliderThumb,
-    marginLeft: -11,
-    top: -8,
+  currencyLabel: {
+    color: colors.textTertiary,
+    fontSize: 18,
+    fontWeight: '600',
   },
   imageActions: {
     flexDirection: 'row',

@@ -9,6 +9,7 @@ interface User {
   first_name: string
   last_name: string
   role: string
+  avatar?: string
 }
 
 interface AuthTokenResponse extends User {
@@ -21,6 +22,7 @@ interface AuthContextValue {
   login: (mail: string, password: string) => Promise<void>
   register: (firstName: string, lastName: string, mail: string, password: string) => Promise<void>
   logout: () => Promise<void>
+  refreshUser: () => Promise<void>
 }
 
 const TOKEN_KEY = 'access_token'
@@ -96,13 +98,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser({ user_id: data.user_id, mail: data.mail, first_name: data.first_name, last_name: data.last_name, role: data.role })
   }
 
+  const refreshUser = useCallback(async () => {
+    try {
+      const data = await apiClient.get<User>('/users/me')
+      setUser(data)
+    } catch {
+      // ignore
+    }
+  }, [])
+
   const logout = async () => {
     await clearToken()
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   )

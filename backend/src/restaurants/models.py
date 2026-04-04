@@ -26,6 +26,7 @@ class RestaurantReview(BaseModel):
     experience_rating: float
     comment: str | None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime | None = None
     visited_at: date | None = None
 
 class FoodReview(BaseModel):
@@ -37,6 +38,7 @@ class FoodReview(BaseModel):
     rating: float
     comment: str | None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime | None = None
     visited_at: date | None = None
 
 class FoodReviewImage(BaseModel):
@@ -77,6 +79,7 @@ class CreateRestaurantReviewRequest(BaseModel):
     experience_rating: float = Field(..., ge=0.0, le=10.0, description="Overall experience rating given by the user (1 to 10).")
     comment: str | None = Field(None, description="Optional comment provided by the user.")
     visited_at: date | None = Field(None, description="Optional date when the restaurant was visited.")
+    coauthor_ids: list[str] = Field(default_factory=list, description="User IDs of friends who co-authored this review.")
 
 class CreateFoodReviewRequest(BaseModel):
     restaurant_id: str = Field(..., description="ID of the restaurant the food belongs to.")
@@ -86,6 +89,21 @@ class CreateFoodReviewRequest(BaseModel):
     comment: str | None = Field(None, description="Optional comment provided by the user.")
     images: list[str] = Field(default_factory=list, description="List of base64-encoded images.")
     visited_at: date | None = Field(None, description="Optional date when the restaurant was visited.")
+
+class UpdateRestaurantReviewRequest(BaseModel):
+    review_id: str = Field(..., description="ID of the review to update.")
+    cleanliness_rating: float | None = Field(None, ge=0.0, le=10.0, description="Updated cleanliness rating.")
+    experience_rating: float | None = Field(None, ge=0.0, le=10.0, description="Updated experience rating.")
+    comment: str | None = Field(None, description="Updated comment.")
+    visited_at: date | None = Field(None, description="Updated visit date.")
+
+class UpdateFoodReviewRequest(BaseModel):
+    food_review_id: str = Field(..., description="ID of the food review to update.")
+    food_name: str | None = Field(None, description="Updated food name.")
+    price: float | None = Field(None, gt=0.0, description="Updated price.")
+    rating: float | None = Field(None, ge=0.0, le=10.0, description="Updated rating.")
+    comment: str | None = Field(None, description="Updated comment.")
+    visited_at: date | None = Field(None, description="Updated visit date.")
 
 class CreateWishlistEntryRequest(BaseModel):
     restaurant_id: str = Field(..., description="ID of the restaurant.")
@@ -159,6 +177,12 @@ class GetReviewsByRestaurantResponse(BaseModel):
 class DeleteReviewResponse(BaseModel):
     success: bool
 
+class UpdateRestaurantReviewResponse(BaseModel):
+    success: bool
+
+class UpdateFoodReviewResponse(BaseModel):
+    success: bool
+
 class CreateWishlistEntryResponse(BaseModel):
     success: bool
 
@@ -185,6 +209,15 @@ class CreateFoodReviewResponse(BaseModel):
 
 class GetFoodReviewsByRestaurantResponse(BaseModel):
     food_reviews: list[dict]
+
+class FoodReviewStatsEntry(BaseModel):
+    restaurant_id: str
+    count: int
+    avg_rating: float | None
+    last_visited: str | None = None
+
+class GetFoodReviewStatsResponse(BaseModel):
+    stats: list[FoodReviewStatsEntry]
 
 class DeleteFoodReviewResponse(BaseModel):
     success: bool

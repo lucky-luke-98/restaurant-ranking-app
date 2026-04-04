@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import {
   View,
   Text,
@@ -9,76 +9,99 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from 'react-native'
+import { PlusIcon, XIcon } from 'phosphor-react-native'
+import RatingSlider from '@/components/inputs/RatingSlider'
+import DateInput from '@/components/inputs/DateInput'
 import { useTranslation } from '@/services/LanguageContext'
 import { useThemeColors } from '@/hooks/useThemeColors'
+import apiClient from '@/services/apiClient'
 import { createStyles } from './AddReviewModal.styles'
+
+interface Friend {
+  user_id: string
+  first_name: string
+  last_name: string
+  avatar?: string
+}
+
+export interface ReviewInitialValues {
+  review_id: string
+  cleanliness_rating: number
+  experience_rating: number
+  comment?: string
+  visited_at?: string
+}
 
 interface AddReviewModalProps {
   visible: boolean
   onClose: () => void
+  initialValues?: ReviewInitialValues | null
   onSubmit: (data: {
     cleanliness_rating: number
     experience_rating: number
     comment: string
     visited_at?: string
+    coauthor_ids?: string[]
   }) => Promise<void>
-}
-
-function RatingSlider({
-  label,
-  value,
-  onChange,
-  styles,
-}: {
-  label: string
-  value: number
-  onChange: (v: number) => void
-  styles: ReturnType<typeof createStyles>
-}) {
-  const trackRef = React.useRef<View>(null)
-
-  const resolveValue = (pageX: number) => {
-    trackRef.current?.measure((_x, _y, width, _h, px) => {
-      const clamped = Math.min(Math.max((pageX - px) / width, 0), 1)
-      onChange(Math.round(clamped * 100) / 10)
-    })
-  }
-
-  return (
-    <View style={styles.ratingGroup}>
-      <Text style={styles.fieldLabel}>
-        {label}: <Text style={styles.ratingDisplay}>{value.toFixed(1)}/10</Text>
-      </Text>
-      <View
-        ref={trackRef}
-        style={styles.sliderTrack}
-        onStartShouldSetResponder={() => true}
-        onMoveShouldSetResponder={() => true}
-        onResponderGrant={(e) => resolveValue(e.nativeEvent.pageX)}
-        onResponderMove={(e) => resolveValue(e.nativeEvent.pageX)}
-      >
-        <View style={[styles.sliderFill, { width: `${value * 10}%` }]} />
-        <View style={[styles.sliderThumb, { left: `${value * 10}%` }]} />
-      </View>
-    </View>
-  )
 }
 
 export default function AddReviewModal({
   visible,
   onClose,
+  initialValues,
   onSubmit,
 }: AddReviewModalProps) {
+  const isEdit = !!initialValues
   const { t } = useTranslation()
   const colors = useThemeColors()
   const styles = useMemo(() => createStyles(colors), [colors])
   const [cleanliness, setCleanliness] = useState(5)
   const [experience, setExperience] = useState(5)
   const [comment, setComment] = useState('')
-  const [visitedAt, setVisitedAt] = useState('')
+  const todayStr = () => new Date().toISOString().slice(0, 10)
+  const [visitedAt, setVisitedAt] = useState(todayStr)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Coauthor state
+  const [friends, setFriends] = useState<Friend[]>([])
+  const [selectedCoauthors, setSelectedCoauthors] = useState<Friend[]>([])
+
+  const fetchFriends = useCallback(async () => {
+    try {
+      const data = await apiClient.get<{ friends: Friend[] }>('/users/friends')
+      setFriends(data.friends)
+    } catch {
+      // ignore
+    }
+  }, [])
+
+  useEffect(() => {
+    if (visible) {
+      fetchFriends()
+      if (initialValues) {
+        setCleanliness(initialValues.cleanliness_rating)
+        setExperience(initialValues.experience_rating)
+        setComment(initialValues.comment ?? '')
+        setVisitedAt(initialValues.visited_at ?? '')
+      }
+    }
+  }, [visible, fetchFriends, initialValues])
+
+  const availableFriends = useMemo(
+    () => friends.filter((f) => !selectedCoauthors.some((s) => s.user_id === f.user_id)),
+    [friends, selectedCoauthors],
+  )
+
+  const addCoauthor = (friend: Friend) => {
+    setSelectedCoauthors((prev) => [...prev, friend])
+  }
+
+  const removeCoauthor = (userId: string) => {
+    setSelectedCoauthors((prev) => prev.filter((f) => f.user_id !== userId))
+  }
 
   const handleSubmit = async () => {
     setSubmitting(true)
@@ -89,6 +112,9 @@ export default function AddReviewModal({
         experience_rating: experience,
         comment: comment.trim(),
         ...(visitedAt ? { visited_at: visitedAt } : {}),
+        ...(selectedCoauthors.length > 0
+          ? { coauthor_ids: selectedCoauthors.map((f) => f.user_id) }
+          : {}),
       })
       handleClose()
     } catch (err: any) {
@@ -102,7 +128,8 @@ export default function AddReviewModal({
     setCleanliness(5)
     setExperience(5)
     setComment('')
-    setVisitedAt('')
+    setVisitedAt(todayStr())
+    setSelectedCoauthors([])
     setError(null)
     onClose()
   }
@@ -115,9 +142,9 @@ export default function AddReviewModal({
       >
         <View style={styles.sheet}>
           <View style={styles.header}>
-            <Text style={styles.title}>{t.addReviewTitle}</Text>
+            <Text style={styles.title}>{isEdit ? t.editReviewTitle : t.addReviewTitle}</Text>
             <Pressable onPress={handleClose} hitSlop={12}>
-              <Text style={styles.closeButton}>✕</Text>
+              <Text style={styles.closeButton}>{'\u2715'}</Text>
             </Pressable>
           </View>
 
@@ -128,24 +155,19 @@ export default function AddReviewModal({
               label={t.cleanliness}
               value={cleanliness}
               onChange={setCleanliness}
-              styles={styles}
             />
 
             <RatingSlider
               label={t.experience}
               value={experience}
               onChange={setExperience}
-              styles={styles}
             />
 
-            <Text style={styles.fieldLabel}>{t.visitedOnOptional}</Text>
-            <TextInput
-              style={styles.dateInput}
+            <DateInput
+              label={t.visitedOnOptional}
               value={visitedAt}
-              onChangeText={setVisitedAt}
+              onChange={setVisitedAt}
               placeholder={t.datePlaceholder}
-              placeholderTextColor={colors.textPlaceholder}
-              maxLength={10}
             />
 
             <Text style={styles.fieldLabel}>{t.commentOptional}</Text>
@@ -159,6 +181,57 @@ export default function AddReviewModal({
               numberOfLines={4}
             />
 
+            {/* Coauthors section */}
+            {friends.length > 0 && (
+              <View style={styles.coauthorSection}>
+                <Text style={styles.fieldLabel}>{t.inviteFriend}</Text>
+                {selectedCoauthors.length > 0 && (
+                  <View style={styles.coauthorChips}>
+                    {selectedCoauthors.map((f) => (
+                      <View key={f.user_id} style={styles.coauthorChip}>
+                        {f.avatar ? (
+                          <Image
+                            source={{ uri: `data:image/jpeg;base64,${f.avatar}` }}
+                            style={styles.coauthorChipAvatar}
+                          />
+                        ) : null}
+                        <Text style={styles.coauthorChipText}>{f.first_name}</Text>
+                        <Pressable onPress={() => removeCoauthor(f.user_id)} hitSlop={4}>
+                          <XIcon size={12} color={colors.textFaint} weight="bold" />
+                        </Pressable>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                {availableFriends.length > 0 && (
+                  <View style={styles.coauthorList}>
+                    {availableFriends.map((f) => (
+                      <Pressable
+                        key={f.user_id}
+                        style={styles.coauthorRow}
+                        onPress={() => addCoauthor(f)}
+                      >
+                        {f.avatar ? (
+                          <Image
+                            source={{ uri: `data:image/jpeg;base64,${f.avatar}` }}
+                            style={styles.coauthorAvatar}
+                          />
+                        ) : (
+                          <View style={styles.coauthorAvatarFallback}>
+                            <Text style={styles.coauthorAvatarText}>
+                              {f.first_name[0]}{f.last_name[0]}
+                            </Text>
+                          </View>
+                        )}
+                        <Text style={styles.coauthorName}>{f.first_name} {f.last_name}</Text>
+                        <PlusIcon size={16} color={colors.textFaint} weight="bold" />
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
+
             <Pressable
               style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
               onPress={handleSubmit}
@@ -167,7 +240,7 @@ export default function AddReviewModal({
               {submitting ? (
                 <ActivityIndicator color={colors.text} size="small" />
               ) : (
-                <Text style={styles.submitButtonText}>{t.submitReview}</Text>
+                <Text style={styles.submitButtonText}>{isEdit ? t.saveChanges : t.submitReview}</Text>
               )}
             </Pressable>
           </ScrollView>

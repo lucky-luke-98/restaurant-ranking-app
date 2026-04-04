@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import {
   View,
   Text,
@@ -11,14 +11,26 @@ import {
   ActivityIndicator,
   Image,
 } from 'react-native'
+import RatingSlider from '@/components/inputs/RatingSlider'
+import DateInput from '@/components/inputs/DateInput'
 import { useTranslation } from '@/services/LanguageContext'
 import { useThemeColors } from '@/hooks/useThemeColors'
 import { createStyles } from './AddFoodReviewModal.styles'
 import * as ImagePicker from 'expo-image-picker'
 
+export interface FoodReviewInitialValues {
+  food_review_id: string
+  food_name: string
+  price: number
+  rating: number
+  comment?: string
+  visited_at?: string
+}
+
 interface AddFoodReviewModalProps {
   visible: boolean
   onClose: () => void
+  initialValues?: FoodReviewInitialValues | null
   onSubmit: (data: {
     food_name: string
     price: number
@@ -29,51 +41,13 @@ interface AddFoodReviewModalProps {
   }) => Promise<void>
 }
 
-function RatingSlider({
-  label,
-  value,
-  onChange,
-  styles,
-}: {
-  label: string
-  value: number
-  onChange: (v: number) => void
-  styles: ReturnType<typeof createStyles>
-}) {
-  const trackRef = React.useRef<View>(null)
-
-  const resolveValue = (pageX: number) => {
-    trackRef.current?.measure((_x, _y, width, _h, px) => {
-      const clamped = Math.min(Math.max((pageX - px) / width, 0), 1)
-      onChange(Math.round(clamped * 100) / 10)
-    })
-  }
-
-  return (
-    <View style={styles.ratingGroup}>
-      <Text style={styles.fieldLabel}>
-        {label}: <Text style={styles.ratingDisplay}>{value.toFixed(1)}/10</Text>
-      </Text>
-      <View
-        ref={trackRef}
-        style={styles.sliderTrack}
-        onStartShouldSetResponder={() => true}
-        onMoveShouldSetResponder={() => true}
-        onResponderGrant={(e) => resolveValue(e.nativeEvent.pageX)}
-        onResponderMove={(e) => resolveValue(e.nativeEvent.pageX)}
-      >
-        <View style={[styles.sliderFill, { width: `${value * 10}%` }]} />
-        <View style={[styles.sliderThumb, { left: `${value * 10}%` }]} />
-      </View>
-    </View>
-  )
-}
-
 export default function AddFoodReviewModal({
   visible,
   onClose,
+  initialValues,
   onSubmit,
 }: AddFoodReviewModalProps) {
+  const isEdit = !!initialValues
   const { t } = useTranslation()
   const colors = useThemeColors()
   const styles = useMemo(() => createStyles(colors), [colors])
@@ -82,9 +56,20 @@ export default function AddFoodReviewModal({
   const [rating, setRating] = useState(5)
   const [comment, setComment] = useState('')
   const [images, setImages] = useState<string[]>([])
-  const [visitedAt, setVisitedAt] = useState('')
+  const todayStr = () => new Date().toISOString().slice(0, 10)
+  const [visitedAt, setVisitedAt] = useState(todayStr)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (visible && initialValues) {
+      setFoodName(initialValues.food_name)
+      setPrice(String(initialValues.price))
+      setRating(initialValues.rating)
+      setComment(initialValues.comment ?? '')
+      setVisitedAt(initialValues.visited_at ?? '')
+    }
+  }, [visible, initialValues])
 
   const priceNum = parseFloat(price)
   const isValid = foodName.trim().length > 0 && !isNaN(priceNum) && priceNum > 0
@@ -190,7 +175,7 @@ export default function AddFoodReviewModal({
     setRating(5)
     setComment('')
     setImages([])
-    setVisitedAt('')
+    setVisitedAt(todayStr())
     setError(null)
     onClose()
   }
@@ -203,7 +188,7 @@ export default function AddFoodReviewModal({
       >
         <View style={styles.sheet}>
           <View style={styles.header}>
-            <Text style={styles.title}>{t.addFoodReviewTitle}</Text>
+            <Text style={styles.title}>{isEdit ? t.editFoodReviewTitle : t.addFoodReviewTitle}</Text>
             <Pressable onPress={handleClose} hitSlop={12}>
               <Text style={styles.closeButton}>✕</Text>
             </Pressable>
@@ -223,25 +208,25 @@ export default function AddFoodReviewModal({
             />
 
             <Text style={styles.fieldLabel}>{t.priceLabel}</Text>
-            <TextInput
-              style={styles.textInputSingle}
-              value={price}
-              onChangeText={setPrice}
-              placeholder={t.pricePlaceholder}
-              placeholderTextColor={colors.textPlaceholder}
-              keyboardType="decimal-pad"
-            />
+            <View style={styles.priceRow}>
+              <TextInput
+                style={styles.priceInput}
+                value={price}
+                onChangeText={setPrice}
+                placeholder={t.pricePlaceholder}
+                placeholderTextColor={colors.textPlaceholder}
+                keyboardType="decimal-pad"
+              />
+              <Text style={styles.currencyLabel}>{'\u20AC'}</Text>
+            </View>
 
-            <RatingSlider label={t.rating} value={rating} onChange={setRating} styles={styles} />
+            <RatingSlider label={t.rating} value={rating} onChange={setRating} />
 
-            <Text style={styles.fieldLabel}>{t.visitedOnOptional}</Text>
-            <TextInput
-              style={styles.textInputSingle}
+            <DateInput
+              label={t.visitedOnOptional}
               value={visitedAt}
-              onChangeText={setVisitedAt}
+              onChange={setVisitedAt}
               placeholder={t.datePlaceholder}
-              placeholderTextColor={colors.textPlaceholder}
-              maxLength={10}
             />
 
             <Text style={styles.fieldLabel}>{t.commentOptional}</Text>
@@ -293,7 +278,7 @@ export default function AddFoodReviewModal({
               {submitting ? (
                 <ActivityIndicator color={colors.text} size="small" />
               ) : (
-                <Text style={styles.submitButtonText}>{t.submitFoodReview}</Text>
+                <Text style={styles.submitButtonText}>{isEdit ? t.saveChanges : t.submitFoodReview}</Text>
               )}
             </Pressable>
           </ScrollView>

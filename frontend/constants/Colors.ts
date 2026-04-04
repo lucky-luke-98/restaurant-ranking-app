@@ -38,7 +38,7 @@ export const Colors = {
     sliderThumb: '#11181C',
 
     // Accent / brand
-    primary: 'rgba(0.8,0.3,0.6,0.75)',
+    primary: 'rgba(140,50,110,0.85)',
     error: '#dc3545',
     errorBackground: 'rgba(220,53,69,0.1)',
     success: '#4CAF50',
@@ -92,7 +92,7 @@ export const Colors = {
     sliderThumb: '#fff',
 
     // Accent / brand
-    primary: 'rgba(0.8,0.3,0.6,0.75)',
+    primary: 'rgba(140,50,110,0.85)',
     error: '#ff6b6b',
     errorBackground: 'rgba(255,107,107,0.1)',
     success: '#4CAF50',

@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 import requests
 from loguru import logger
 
@@ -16,6 +18,8 @@ from src.restaurants.models import (
     CreateFoodReviewRequest,
     CreateWishlistEntryRequest,
     CreateVisitedEntryRequest,
+    UpdateRestaurantReviewRequest,
+    UpdateFoodReviewRequest,
     GetRestaurantByIdRequest,
     GetReviewsByRestaurantRequest,
     GetFoodReviewsByRestaurantRequest,
@@ -182,16 +186,45 @@ def delete_restaurant(request: DeleteRestaurantRequest) -> bool:
 def create_one_restaurant_review(request: CreateRestaurantReviewRequest, user_id: str) -> str | None:
     """
     Creates one restaurant review entry based on provided information.
+    If coauthor_ids are provided, stores them on the review and creates
+    visited entries for each coauthor.
     """
     if not verify_user_entry(user_id):
         raise ValueError("User ID not found in the db. Please set the user first.")
 
     collection = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
-    review = RestaurantReview(**request.model_dump(), user_id=user_id)
-    result = collection.insert_one(review.model_dump(mode="json"))
-    if result.acknowledged:
-        return review.review_id
-    return None
+    review_data = request.model_dump(exclude={"coauthor_ids"})
+    review = RestaurantReview(**review_data, user_id=user_id)
+    doc = review.model_dump(mode="json")
+    if request.coauthor_ids:
+        doc["coauthor_ids"] = request.coauthor_ids
+    result = collection.insert_one(doc)
+    if not result.acknowledged:
+        return None
+
+    # Move from wishlist to visited for the reviewer
+    visited_col = get_mongo_collection(collection_name=settings.mongo_visited_collection)
+    wishlist_col = get_mongo_collection(collection_name=settings.mongo_wishlist_collection)
+
+    existing_visited = visited_col.find_one({"user_id": user_id, "restaurant_id": request.restaurant_id})
+    if not existing_visited:
+        entry = VisitedEntry(user_id=user_id, restaurant_id=request.restaurant_id)
+        visited_col.insert_one(entry.model_dump())
+    wishlist_col.delete_one({"user_id": user_id, "restaurant_id": request.restaurant_id})
+
+    # Create visited entries for coauthors
+    if request.coauthor_ids:
+        for coauthor_id in request.coauthor_ids:
+            existing = visited_col.find_one({
+                "user_id": coauthor_id,
+                "restaurant_id": request.restaurant_id,
+            })
+            if not existing:
+                entry = VisitedEntry(user_id=coauthor_id, restaurant_id=request.restaurant_id)
+                visited_col.insert_one(entry.model_dump())
+            wishlist_col.delete_one({"user_id": coauthor_id, "restaurant_id": request.restaurant_id})
+
+    return review.review_id
 
 
 @service
@@ -205,11 +238,35 @@ def get_reviews_by_restaurant(request: GetReviewsByRestaurantRequest) -> list[di
     user_ids = list({r["user_id"] for r in reviews})
     user_map = {}
     if user_ids:
-        users = users_collection.find({"user_id": {"$in": user_ids}}, {"user_id": 1, "first_name": 1})
-        user_map = {u["user_id"]: u.get("first_name", "") for u in users}
+        users = users_collection.find({"user_id": {"$in": user_ids}}, {"user_id": 1, "first_name": 1, "avatar": 1})
+        user_map = {u["user_id"]: {"first_name": u.get("first_name", ""), "avatar": u.get("avatar")} for u in users}
+    # Collect all user IDs including coauthors
+    coauthor_ids_all = set()
+    for review in reviews:
+        for cid in review.get("coauthor_ids", []):
+            coauthor_ids_all.add(cid)
+    extra_ids = coauthor_ids_all - set(user_ids)
+    if extra_ids:
+        extra_users = users_collection.find({"user_id": {"$in": list(extra_ids)}}, {"user_id": 1, "first_name": 1, "avatar": 1})
+        for u in extra_users:
+            user_map[u["user_id"]] = {"first_name": u.get("first_name", ""), "avatar": u.get("avatar")}
+
     for review in reviews:
         review.pop("_id", None)
-        review["first_name"] = user_map.get(review["user_id"], "")
+        info = user_map.get(review["user_id"], {})
+        review["first_name"] = info.get("first_name", "")
+        if info.get("avatar"):
+            review["avatar"] = info["avatar"]
+        # Enrich coauthors
+        if review.get("coauthor_ids"):
+            review["coauthors"] = []
+            for cid in review["coauthor_ids"]:
+                ci = user_map.get(cid, {})
+                review["coauthors"].append({
+                    "user_id": cid,
+                    "first_name": ci.get("first_name", ""),
+                    "avatar": ci.get("avatar"),
+                })
     return reviews
 
 
@@ -234,6 +291,25 @@ def delete_review(request: DeleteReviewRequest) -> bool:
 
 
 @service
+def update_restaurant_review(request: UpdateRestaurantReviewRequest) -> bool:
+    """Updates a restaurant review with the provided fields."""
+    collection = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
+    updates = {}
+    for field in ("cleanliness_rating", "experience_rating", "comment", "visited_at"):
+        value = getattr(request, field)
+        if value is not None:
+            updates[field] = value.isoformat() if hasattr(value, "isoformat") else value
+    if not updates:
+        return False
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+    result = collection.update_one(
+        {"review_id": request.review_id},
+        {"$set": updates},
+    )
+    return result.modified_count > 0
+
+
+@service
 def get_reviewed_restaurant_ids_by_user(request: GetReviewedRestaurantIdsByUserRequest) -> list[str]:
     """
     Returns distinct restaurant IDs that a user has reviewed.
@@ -249,10 +325,17 @@ def get_reviewed_restaurant_ids_by_user(request: GetReviewedRestaurantIdsByUserR
 def create_food_review(request: CreateFoodReviewRequest, user_id: str) -> str | None:
     """
     Creates a food review entry based on provided information.
+    Requires the user to have a restaurant review for this restaurant first.
     Also stores any attached images in the images collection.
     """
     if not verify_user_entry(user_id):
         raise ValueError("User ID not found in the db. Please set the user first.")
+
+    # Require a restaurant review before allowing food reviews
+    reviews_col = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
+    has_review = reviews_col.find_one({"user_id": user_id, "restaurant_id": request.restaurant_id})
+    if not has_review:
+        raise ValueError("You must submit a restaurant review before adding a food review.")
 
     collection = get_mongo_collection(collection_name=settings.mongo_food_reviews_collection)
     review_data = request.model_dump(exclude={"images"})
@@ -283,11 +366,14 @@ def get_food_reviews_by_restaurant(request: GetFoodReviewsByRestaurantRequest) -
     user_ids = list({r["user_id"] for r in food_reviews})
     user_map = {}
     if user_ids:
-        users = users_collection.find({"user_id": {"$in": user_ids}}, {"user_id": 1, "first_name": 1})
-        user_map = {u["user_id"]: u.get("first_name", "") for u in users}
+        users = users_collection.find({"user_id": {"$in": user_ids}}, {"user_id": 1, "first_name": 1, "avatar": 1})
+        user_map = {u["user_id"]: {"first_name": u.get("first_name", ""), "avatar": u.get("avatar")} for u in users}
     for review in food_reviews:
         review.pop("_id", None)
-        review["first_name"] = user_map.get(review["user_id"], "")
+        info = user_map.get(review["user_id"], {})
+        review["first_name"] = info.get("first_name", "")
+        if info.get("avatar"):
+            review["avatar"] = info["avatar"]
     return food_reviews
 
 
@@ -316,6 +402,25 @@ def delete_food_review(request: DeleteFoodReviewRequest) -> bool:
 
 
 @service
+def update_food_review(request: UpdateFoodReviewRequest) -> bool:
+    """Updates a food review with the provided fields."""
+    collection = get_mongo_collection(collection_name=settings.mongo_food_reviews_collection)
+    updates = {}
+    for field in ("food_name", "price", "rating", "comment", "visited_at"):
+        value = getattr(request, field)
+        if value is not None:
+            updates[field] = value.isoformat() if hasattr(value, "isoformat") else value
+    if not updates:
+        return False
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+    result = collection.update_one(
+        {"food_review_id": request.food_review_id},
+        {"$set": updates},
+    )
+    return result.modified_count > 0
+
+
+@service
 def get_images_by_food_review(food_review_id: str) -> list[dict]:
     """
     Returns all images for a given food review.
@@ -325,6 +430,64 @@ def get_images_by_food_review(food_review_id: str) -> list[dict]:
     for img in images:
         img.pop("_id", None)
     return images
+
+
+@service
+def get_food_review_stats(restaurant_ids: list[str], user_id: str | None = None) -> list[dict]:
+    """
+    Returns food review count and average rating for each given restaurant.
+    If user_id is provided, also returns the user's most recent visited_at date
+    across both restaurant reviews and food reviews.
+    """
+    food_collection = get_mongo_collection(collection_name=settings.mongo_food_reviews_collection)
+    pipeline = [
+        {"$match": {"restaurant_id": {"$in": restaurant_ids}}},
+        {"$group": {
+            "_id": "$restaurant_id",
+            "count": {"$sum": 1},
+            "avg_rating": {"$avg": "$rating"},
+        }},
+    ]
+    results = list(food_collection.aggregate(pipeline))
+    stats = {
+        r["_id"]: {
+            "restaurant_id": r["_id"],
+            "count": r["count"],
+            "avg_rating": round(r["avg_rating"], 1) if r["avg_rating"] is not None else None,
+            "last_visited": None,
+        }
+        for r in results
+    }
+
+    # Ensure all requested restaurants appear in output
+    for rid in restaurant_ids:
+        if rid not in stats:
+            stats[rid] = {"restaurant_id": rid, "count": 0, "avg_rating": None, "last_visited": None}
+
+    # Find user's last visited date from both review types
+    if user_id:
+        reviews_collection = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
+        user_review_pipeline = [
+            {"$match": {"user_id": user_id, "restaurant_id": {"$in": restaurant_ids}, "visited_at": {"$ne": None}}},
+            {"$group": {"_id": "$restaurant_id", "last_visited": {"$max": "$visited_at"}}},
+        ]
+        for r in reviews_collection.aggregate(user_review_pipeline):
+            if r["_id"] in stats:
+                stats[r["_id"]]["last_visited"] = str(r["last_visited"]) if r["last_visited"] else None
+
+        user_food_pipeline = [
+            {"$match": {"user_id": user_id, "restaurant_id": {"$in": restaurant_ids}, "visited_at": {"$ne": None}}},
+            {"$group": {"_id": "$restaurant_id", "last_visited": {"$max": "$visited_at"}}},
+        ]
+        for r in food_collection.aggregate(user_food_pipeline):
+            rid = r["_id"]
+            if rid in stats:
+                new_val = str(r["last_visited"]) if r["last_visited"] else None
+                existing = stats[rid]["last_visited"]
+                if new_val and (not existing or new_val > existing):
+                    stats[rid]["last_visited"] = new_val
+
+    return list(stats.values())
 
 
 # ==================== wishlist ==================== #

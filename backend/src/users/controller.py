@@ -8,11 +8,19 @@ from src.users.models import (
     RegisterRequest,
     LoginRequest,
     AuthResponse,
+    UpdateAvatarRequest,
+    AddFriendRequest,
+    SearchUsersResponse,
 )
 from src.users.services import (
     get_all_users_from_db,
     register_user,
     authenticate_user,
+    update_user_avatar,
+    search_users,
+    add_friend,
+    remove_friend,
+    get_friends,
 )
 from src.utils.auth import create_access_token, get_current_user, require_admin
 from src.utils.rate_limit import limiter
@@ -91,6 +99,41 @@ async def get_me(current_user: dict = Depends(get_current_user)) -> dict:
     if not doc:
         raise HTTPException(status_code=404, detail="User not found.")
     return doc
+
+
+@router.put("/me/avatar")
+async def set_avatar(data: UpdateAvatarRequest, current_user: dict = Depends(get_current_user)):
+    """Upload or update the current user's profile picture (base64 thumbnail)."""
+    await to_thread(update_user_avatar, user_id=current_user["user_id"], avatar=data.avatar)
+    return {"success": True}
+
+
+@router.get("/search")
+async def search(query: str, current_user: dict = Depends(get_current_user)) -> SearchUsersResponse:
+    """Search users by name."""
+    results = await to_thread(search_users, query=query, current_user_id=current_user["user_id"])
+    return SearchUsersResponse(users=results)
+
+
+@router.get("/friends")
+async def list_friends(current_user: dict = Depends(get_current_user)) -> dict:
+    """Get current user's friends list."""
+    friends = await to_thread(get_friends, user_id=current_user["user_id"])
+    return {"friends": friends}
+
+
+@router.post("/friends")
+async def add_friend_endpoint(data: AddFriendRequest, current_user: dict = Depends(get_current_user)):
+    """Add a friend connection."""
+    await to_thread(add_friend, user_id=current_user["user_id"], friend_user_id=data.friend_user_id)
+    return {"success": True}
+
+
+@router.delete("/friends/{friend_user_id}")
+async def remove_friend_endpoint(friend_user_id: str, current_user: dict = Depends(get_current_user)):
+    """Remove a friend connection."""
+    await to_thread(remove_friend, user_id=current_user["user_id"], friend_user_id=friend_user_id)
+    return {"success": True}
 
 
 @router.get("/")

@@ -1,6 +1,6 @@
 from asyncio import to_thread
 
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends, Request, Query
 
 from src.restaurants.models import (
     CreateRestaurantRequest,
@@ -8,6 +8,8 @@ from src.restaurants.models import (
     CreateFoodReviewRequest,
     CreateWishlistEntryRequest,
     CreateVisitedEntryRequest,
+    UpdateRestaurantReviewRequest,
+    UpdateFoodReviewRequest,
     GetRestaurantByIdRequest,
     GetReviewsByRestaurantRequest,
     GetFoodReviewsByRestaurantRequest,
@@ -25,12 +27,16 @@ from src.restaurants.models import (
     GetRestaurantByIdResponse,
     DeleteRestaurantResponse,
     CreateRestaurantReviewResponse,
+    UpdateRestaurantReviewResponse,
     GetReviewsByRestaurantResponse,
     GetReviewedRestaurantIdsByUserResponse,
     DeleteReviewResponse,
     CreateFoodReviewResponse,
+    UpdateFoodReviewResponse,
     GetFoodReviewsByRestaurantResponse,
     DeleteFoodReviewResponse,
+    GetFoodReviewStatsResponse,
+    FoodReviewStatsEntry,
     CreateWishlistEntryResponse,
     GetWishlistByUserResponse,
     DeleteWishlistEntryResponse,
@@ -48,12 +54,15 @@ from src.restaurants.services import (
     get_reviews_by_restaurant,
     get_reviewed_restaurant_ids_by_user,
     get_review_by_id,
+    update_restaurant_review,
     delete_review,
     create_food_review,
     get_food_reviews_by_restaurant,
     get_food_review_by_id,
+    update_food_review,
     delete_food_review,
     get_images_by_food_review,
+    get_food_review_stats,
     create_wishlist_entry,
     get_wishlist_by_user,
     get_wishlist_entry_by_id,
@@ -112,6 +121,22 @@ async def get_restaurants(
     try:
         restaurants = await to_thread(get_all_restaurants)
         return GetAllRestaurantsResponse(restaurants=restaurants)
+    except Exception as exp:
+        raise HTTPException(status_code=500, detail=str(exp))
+
+
+@router.get("/food-review-stats")
+async def get_food_reviews_stats(
+    restaurant_ids: list[str] = Query(...),
+    current_user: dict = Depends(get_current_user),
+) -> GetFoodReviewStatsResponse:
+    """Endpoint to get food review count, average rating, and user's last visited date."""
+    try:
+        user_id = current_user["user_id"]
+        stats = await to_thread(get_food_review_stats, restaurant_ids=restaurant_ids, user_id=user_id)
+        return GetFoodReviewStatsResponse(
+            stats=[FoodReviewStatsEntry(**s) for s in stats]
+        )
     except Exception as exp:
         raise HTTPException(status_code=500, detail=str(exp))
 
@@ -188,6 +213,25 @@ async def get_reviewed_restaurants(
         raise HTTPException(status_code=500, detail=str(exp))
 
 
+@router.put("/reviews")
+async def update_review(
+    request: UpdateRestaurantReviewRequest,
+    current_user: dict = Depends(get_current_user),
+) -> UpdateRestaurantReviewResponse:
+    """Endpoint to update a restaurant review."""
+    try:
+        review = await to_thread(get_review_by_id, review_id=request.review_id)
+        if not review:
+            raise HTTPException(status_code=404, detail="Review not found.")
+        enforce_owner(current_user, review["user_id"])
+        success = await to_thread(update_restaurant_review, request=request)
+        return UpdateRestaurantReviewResponse(success=success)
+    except HTTPException:
+        raise
+    except Exception as exp:
+        raise HTTPException(status_code=500, detail=str(exp))
+
+
 @router.delete("/reviews/{review_id}")
 async def remove_review(
     review_id: str,
@@ -234,6 +278,25 @@ async def get_food_reviews(
         request = GetFoodReviewsByRestaurantRequest(restaurant_id=restaurant_id)
         food_reviews = await to_thread(get_food_reviews_by_restaurant, request=request)
         return GetFoodReviewsByRestaurantResponse(food_reviews=food_reviews)
+    except Exception as exp:
+        raise HTTPException(status_code=500, detail=str(exp))
+
+
+@router.put("/reviews/food")
+async def update_food_review_entry(
+    request: UpdateFoodReviewRequest,
+    current_user: dict = Depends(get_current_user),
+) -> UpdateFoodReviewResponse:
+    """Endpoint to update a food review."""
+    try:
+        food_review = await to_thread(get_food_review_by_id, food_review_id=request.food_review_id)
+        if not food_review:
+            raise HTTPException(status_code=404, detail="Food review not found.")
+        enforce_owner(current_user, food_review["user_id"])
+        success = await to_thread(update_food_review, request=request)
+        return UpdateFoodReviewResponse(success=success)
+    except HTTPException:
+        raise
     except Exception as exp:
         raise HTTPException(status_code=500, detail=str(exp))
 

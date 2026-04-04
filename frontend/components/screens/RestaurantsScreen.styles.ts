@@ -31,6 +31,15 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.text,
     fontWeight: '600',
   },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  filterField: {
+    flex: 1,
+  },
   centered: {
     flex: 1,
     justifyContent: 'center',
@@ -40,19 +49,6 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
   list: {
     padding: 16,
     gap: 12,
-  },
-  cardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  cardWrapper: {
-    flex: 1,
-  },
-  deleteEntryButton: {
-    padding: 10,
-    borderRadius: 10,
-    backgroundColor: colors.errorBackground,
   },
   emptyText: {
     color: colors.textMuted,

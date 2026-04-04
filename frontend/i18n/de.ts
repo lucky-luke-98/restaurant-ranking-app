@@ -39,6 +39,7 @@ const de: Translations = {
   navRestaurants: 'Restaurants',
   navMap: 'Karte',
   navRestaurant: 'Restaurant',
+  navProfile: 'Profil',
 
   // Restaurants
   tabVisited: 'Besucht',
@@ -47,6 +48,8 @@ const de: Translations = {
   emptyWishlist: 'Deine Wunschliste ist leer.',
   addToWishlist: 'Zur Wunschliste hinzuf\u00FCgen',
   addVisitedRestaurant: 'Besuchtes Restaurant hinzuf\u00FCgen',
+  filterFrom: 'Von',
+  filterTo: 'Bis',
   confirmRemoveFrom: (label: string) => `Von ${label} entfernen?`,
   visitedList: 'Besuchte-Liste',
   wishlist: 'Wunschliste',
@@ -60,6 +63,7 @@ const de: Translations = {
   restaurantNotFound: 'Restaurant nicht gefunden.',
   confirmDeleteReview: 'Diese Bewertung l\u00F6schen?',
   confirmDeleteFoodReview: 'Diese Essensbewertung l\u00F6schen?',
+  foodReviewRequiresReview: 'Erst eine Restaurant Bewertung abgeben',
 
   // Map
   mapVisited: 'Besucht',
@@ -90,6 +94,15 @@ const de: Translations = {
   wishlistEmpty: 'Deine Wunschliste ist leer',
   failedAddRestaurant: 'Restaurant konnte nicht hinzugef\u00FCgt werden',
 
+  // Edit
+  edit: 'Bearbeiten',
+  edited: 'bearbeitet',
+  editReviewTitle: 'Bewertung bearbeiten',
+  editFoodReviewTitle: 'Essensbewertung bearbeiten',
+  saveChanges: '\u00C4nderungen speichern',
+  failedUpdateReview: 'Bewertung konnte nicht aktualisiert werden',
+  failedUpdateFoodReview: 'Essensbewertung konnte nicht aktualisiert werden',
+
   // Add Review Modal
   addReviewTitle: 'Bewertung hinzuf\u00FCgen',
   visitedOnOptional: 'Besucht am (optional)',
@@ -112,6 +125,11 @@ const de: Translations = {
   submitFoodReview: 'Essensbewertung absenden',
   failedSubmitFoodReview: 'Essensbewertung konnte nicht gesendet werden',
 
+  // Confirm Modal
+  confirmLogout: 'Abmelden?',
+  confirmLogoutMessage: 'Du musst dich erneut anmelden.',
+  logout: 'Abmelden',
+
   // Not Found
   oops: 'Hoppla!',
   screenNotExist: 'Diese Seite existiert nicht.',
@@ -126,6 +144,19 @@ const de: Translations = {
   settingsTheme: 'Erscheinungsbild',
   themeDark: 'Dunkel',
   themeLight: 'Hell',
+
+  // Friends
+  friends: 'Freunde',
+  searchFriends: 'Benutzer suchen...',
+  addFriend: 'Hinzufügen',
+  removeFriend: 'Entfernen',
+  noFriendsYet: 'Noch keine Freunde.',
+  noUsersFound: 'Keine Benutzer gefunden.',
+
+  // Coauthors
+  coauthors: 'Co-Autoren',
+  withCoauthors: 'mit',
+  inviteFriend: 'Freund einladen',
 
   // Admin Panel
   adminPanel: 'Admin-Bereich',

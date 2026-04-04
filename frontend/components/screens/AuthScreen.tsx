@@ -9,7 +9,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native'
-import { ForkKnifeIcon, EnvelopeIcon, LockIcon, UserIcon, SignInIcon, UserPlusIcon } from 'phosphor-react-native'
+import { ForkKnifeIcon, EnvelopeIcon, LockIcon, UserIcon, SignInIcon, UserPlusIcon, EyeIcon, EyeSlashIcon } from 'phosphor-react-native'
 import { useAuth } from '@/services/AuthContext'
 import { useTranslation } from '@/services/LanguageContext'
 import { ApiError } from '@/services/apiClient'
@@ -26,6 +26,7 @@ export default function AuthScreen() {
   const [lastName, setLastName] = useState('')
   const [mail, setMail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -114,8 +115,15 @@ export default function AuthScreen() {
             placeholderTextColor={colors.textPlaceholder}
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
+            secureTextEntry={!showPassword}
           />
+          <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={8}>
+            {showPassword ? (
+              <EyeSlashIcon size={20} color={colors.textFaint} />
+            ) : (
+              <EyeIcon size={20} color={colors.textFaint} />
+            )}
+          </Pressable>
         </View>
 
         {error && <Text style={styles.error}>{error}</Text>}

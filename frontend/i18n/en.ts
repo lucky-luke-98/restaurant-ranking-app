@@ -37,6 +37,7 @@ const en = {
   navRestaurants: 'Restaurants',
   navMap: 'Map',
   navRestaurant: 'Restaurant',
+  navProfile: 'Profile',
 
   // Restaurants
   tabVisited: 'Visited',
@@ -45,6 +46,8 @@ const en = {
   emptyWishlist: 'Your wishlist is empty.',
   addToWishlist: 'Add to wishlist',
   addVisitedRestaurant: 'Add visited restaurant',
+  filterFrom: 'From',
+  filterTo: 'To',
   confirmRemoveFrom: (label: string) => `Remove from ${label}?`,
   visitedList: 'visited list',
   wishlist: 'wishlist',
@@ -58,6 +61,7 @@ const en = {
   restaurantNotFound: 'Restaurant not found.',
   confirmDeleteReview: 'Delete this review?',
   confirmDeleteFoodReview: 'Delete this food review?',
+  foodReviewRequiresReview: 'Add a restaurant review first.',
 
   // Map
   mapVisited: 'Visited',
@@ -88,6 +92,15 @@ const en = {
   wishlistEmpty: 'Your wishlist is empty',
   failedAddRestaurant: 'Failed to add restaurant',
 
+  // Edit
+  edit: 'Edit',
+  edited: 'edited',
+  editReviewTitle: 'Edit Review',
+  editFoodReviewTitle: 'Edit Food Review',
+  saveChanges: 'Save Changes',
+  failedUpdateReview: 'Failed to update review',
+  failedUpdateFoodReview: 'Failed to update food review',
+
   // Add Review Modal
   addReviewTitle: 'Add Review',
   visitedOnOptional: 'Visited on (optional)',
@@ -110,6 +123,11 @@ const en = {
   submitFoodReview: 'Submit Food Review',
   failedSubmitFoodReview: 'Failed to submit food review',
 
+  // Confirm Modal
+  confirmLogout: 'Log out?',
+  confirmLogoutMessage: 'You will need to sign in again.',
+  logout: 'Log out',
+
   // Not Found
   oops: 'Oops!',
   screenNotExist: 'This screen does not exist.',
@@ -124,6 +142,19 @@ const en = {
   settingsTheme: 'Theme',
   themeDark: 'Dark',
   themeLight: 'Light',
+
+  // Friends
+  friends: 'Friends',
+  searchFriends: 'Search users...',
+  addFriend: 'Add',
+  removeFriend: 'Remove',
+  noFriendsYet: 'No friends yet.',
+  noUsersFound: 'No users found.',
+
+  // Coauthors
+  coauthors: 'Co-authors',
+  withCoauthors: 'with',
+  inviteFriend: 'Invite friend',
 
   // Admin Panel
   adminPanel: 'Admin Panel',

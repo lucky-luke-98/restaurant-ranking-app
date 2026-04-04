@@ -39,11 +39,8 @@ function AuthGate() {
   return (
     <Stack>
       <Stack.Screen name="auth" options={{ title: t.navWelcome, headerShown: false }} />
-      <Stack.Screen name="index" options={{ title: t.navHome, headerShown: false }} />
-      <Stack.Screen name="restaurants" options={{ title: t.navRestaurants }} />
-      <Stack.Screen name="map" options={{ title: t.navMap }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="restaurant/[id]" options={{ title: t.navRestaurant }} />
-      <Stack.Screen name="settings" options={{ title: t.navSettings }} />
       <Stack.Screen name="+not-found" />
     </Stack>
   );
