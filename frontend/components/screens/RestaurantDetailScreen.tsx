@@ -9,6 +9,7 @@ import {
 } from 'react-native'
 import { useLocalSearchParams, Stack } from 'expo-router'
 import { PlusIcon, StarIcon } from 'phosphor-react-native'
+import { CUISINE_ICONS, CUISINE_LABEL_KEYS, type CuisineType } from '@/constants/CuisineTypes'
 import apiClient, { ApiError } from '@/services/apiClient'
 import { useAuth } from '@/services/AuthContext'
 import ReviewCard from '@/components/cards/ReviewCard'
@@ -290,7 +291,17 @@ export default function RestaurantDetailScreen() {
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.infoSection}>
           <Text style={styles.name}>{restaurant.name}</Text>
-          <Text style={styles.cuisineBadge}>{restaurant.cuisine_type}</Text>
+          {(() => {
+            const ck = restaurant.cuisine_type as CuisineType
+            const CIcon = CUISINE_ICONS[ck] ?? CUISINE_ICONS.others
+            const lk = CUISINE_LABEL_KEYS[ck] as keyof typeof t | undefined
+            return (
+              <View style={styles.cuisineBadgeRow}>
+                <CIcon size={15} color={colors.textTertiary} weight="duotone" />
+                <Text style={styles.cuisineBadge}>{lk ? (t[lk] as string) : restaurant.cuisine_type}</Text>
+              </View>
+            )
+          })()}
           <Text style={styles.address}>
             {`${restaurant.street}, ${restaurant.city}, ${restaurant.country}`}
           </Text>

@@ -1,9 +1,10 @@
 import { useMemo } from 'react'
 import { View, Text, Pressable } from 'react-native'
 import { useRouter } from 'expo-router'
-import { MapPinIcon, CookingPotIcon, CaretRightIcon, StarIcon, TrashIcon, CalendarIcon } from 'phosphor-react-native'
+import { MapPinIcon, CaretRightIcon, StarIcon, TrashIcon, CalendarIcon } from 'phosphor-react-native'
 import { useTranslation } from '@/services/LanguageContext'
 import { useThemeColors } from '@/hooks/useThemeColors'
+import { CUISINE_ICONS, CUISINE_LABEL_KEYS, type CuisineType } from '@/constants/CuisineTypes'
 import { createStyles } from './RestaurantCard.styles'
 
 interface FoodReviewStats {
@@ -38,6 +39,11 @@ export default function RestaurantCard({ restaurant, stats, onDelete }: Restaura
   const colors = useThemeColors()
   const styles = useMemo(() => createStyles(colors), [colors])
 
+  const cuisineKey = restaurant.cuisine_type as CuisineType
+  const CuisineIcon = CUISINE_ICONS[cuisineKey] ?? CUISINE_ICONS.others
+  const cuisineLabelKey = CUISINE_LABEL_KEYS[cuisineKey] as keyof typeof t | undefined
+  const cuisineLabel = cuisineLabelKey ? (t[cuisineLabelKey] as string) : restaurant.cuisine_type
+
   return (
     <Pressable
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
@@ -53,8 +59,8 @@ export default function RestaurantCard({ restaurant, stats, onDelete }: Restaura
           <View style={styles.header}>
             <Text style={styles.name} numberOfLines={1}>{restaurant.name}</Text>
             <View style={styles.cuisineBadge}>
-              <CookingPotIcon size={13} color={colors.tint} />
-              <Text style={styles.cuisine}>{restaurant.cuisine_type}</Text>
+              <CuisineIcon size={13} color={colors.tint} weight="duotone" />
+              <Text style={styles.cuisine}>{cuisineLabel}</Text>
             </View>
           </View>
           <View style={styles.locationRow}>

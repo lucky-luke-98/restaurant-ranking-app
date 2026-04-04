@@ -8,12 +8,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   FlatList,
+  ScrollView,
   ActivityIndicator,
 } from 'react-native'
 import { useTranslation } from '@/services/LanguageContext'
 import { useThemeColors } from '@/hooks/useThemeColors'
 import { createStyles } from './AddRestaurantModal.styles'
-import { MagnifyingGlassIcon } from 'phosphor-react-native'
+import { MagnifyingGlassIcon, CaretLeftIcon } from 'phosphor-react-native'
+import { CUISINE_TYPES, CUISINE_ICONS, CUISINE_LABEL_KEYS, type CuisineType } from '@/constants/CuisineTypes'
 
 interface PlaceResult {
   google_place_id: string
@@ -25,7 +27,7 @@ interface AddRestaurantModalProps {
   visible: boolean
   onClose: () => void
   onCreated: () => void
-  onSubmit: (googlePlaceId: string) => Promise<void>
+  onSubmit: (googlePlaceId: string, cuisineType: CuisineType) => Promise<void>
 }
 
 export default function AddRestaurantModal({
@@ -43,6 +45,7 @@ export default function AddRestaurantModal({
   const [hasSearched, setHasSearched] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedPlace, setSelectedPlace] = useState<PlaceResult | null>(null)
 
   const handleSearch = async () => {
     if (query.trim().length < 2) return
@@ -63,11 +66,12 @@ export default function AddRestaurantModal({
     }
   }
 
-  const handleSelect = async (place: PlaceResult) => {
+  const handleSelectCuisine = async (cuisineType: CuisineType) => {
+    if (!selectedPlace) return
     setSubmitting(true)
     setError(null)
     try {
-      await onSubmit(place.google_place_id)
+      await onSubmit(selectedPlace.google_place_id, cuisineType)
       onCreated()
     } catch (err: any) {
       setError(err.message ?? t.failedCreateRestaurant)
@@ -80,8 +84,14 @@ export default function AddRestaurantModal({
     setQuery('')
     setResults([])
     setHasSearched(false)
+    setSelectedPlace(null)
     setError(null)
     onClose()
+  }
+
+  const handleBackToSearch = () => {
+    setSelectedPlace(null)
+    setError(null)
   }
 
   return (
@@ -92,65 +102,95 @@ export default function AddRestaurantModal({
       >
         <View style={styles.sheet}>
           <View style={styles.header}>
-            <Text style={styles.title}>{t.addRestaurantTitle}</Text>
+            {selectedPlace ? (
+              <Pressable onPress={handleBackToSearch} hitSlop={12} style={styles.backRow}>
+                <CaretLeftIcon size={18} color={colors.text} weight="bold" />
+                <Text style={styles.title}>{selectedPlace.name}</Text>
+              </Pressable>
+            ) : (
+              <Text style={styles.title}>{t.addRestaurantTitle}</Text>
+            )}
             <Pressable onPress={handleClose} hitSlop={12}>
-              <Text style={styles.closeButton}>✕</Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.searchRow}>
-            <TextInput
-              style={styles.searchInput}
-              value={query}
-              onChangeText={setQuery}
-              onSubmitEditing={handleSearch}
-              placeholder={t.searchPlaceholder}
-              placeholderTextColor={colors.textPlaceholder}
-              returnKeyType="search"
-              autoFocus
-            />
-            <Pressable
-              style={[styles.searchButton, query.trim().length < 2 && styles.searchButtonDisabled]}
-              onPress={handleSearch}
-              disabled={query.trim().length < 2 || searching}
-            >
-              <MagnifyingGlassIcon size={20} color={colors.text} weight="bold" />
+              <Text style={styles.closeButton}>{'\u2715'}</Text>
             </Pressable>
           </View>
 
           {error && <Text style={styles.error}>{error}</Text>}
 
-          {searching ? (
-            <View style={styles.centered}>
-              <ActivityIndicator color={colors.tint} />
-            </View>
-          ) : results.length > 0 ? (
-            <FlatList
-              data={results}
-              keyExtractor={(item) => item.google_place_id}
-              keyboardShouldPersistTaps="handled"
-              style={styles.resultsList}
-              renderItem={({ item }) => (
-                <Pressable
-                  style={styles.resultItem}
-                  onPress={() => handleSelect(item)}
-                  disabled={submitting}
-                >
-                  <Text style={styles.resultName}>{item.name}</Text>
-                  <Text style={styles.resultAddress}>{item.address}</Text>
-                </Pressable>
-              )}
-            />
-          ) : hasSearched && results.length === 0 ? (
-            <View style={styles.centered}>
-              <Text style={styles.emptyText}>{t.noResults}</Text>
-            </View>
+          {selectedPlace ? (
+            <ScrollView keyboardShouldPersistTaps="handled">
+              <Text style={styles.cuisinePrompt}>{t.selectCuisineType}</Text>
+              <View style={styles.cuisineGrid}>
+                {CUISINE_TYPES.map((ct) => {
+                  const Icon = CUISINE_ICONS[ct]
+                  const labelKey = CUISINE_LABEL_KEYS[ct] as keyof typeof t
+                  return (
+                    <Pressable
+                      key={ct}
+                      style={({ pressed }) => [styles.cuisineChip, pressed && styles.cuisineChipPressed]}
+                      onPress={() => handleSelectCuisine(ct)}
+                      disabled={submitting}
+                    >
+                      <Icon size={20} color={colors.text} weight="duotone" />
+                      <Text style={styles.cuisineChipText}>{t[labelKey] as string}</Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
+            </ScrollView>
           ) : (
-            <View style={styles.centered}>
-              <Text style={styles.emptyText}>
-                {t.searchInstruction}
-              </Text>
-            </View>
+            <>
+              <View style={styles.searchRow}>
+                <TextInput
+                  style={styles.searchInput}
+                  value={query}
+                  onChangeText={setQuery}
+                  onSubmitEditing={handleSearch}
+                  placeholder={t.searchPlaceholder}
+                  placeholderTextColor={colors.textPlaceholder}
+                  returnKeyType="search"
+                  autoFocus
+                />
+                <Pressable
+                  style={[styles.searchButton, query.trim().length < 2 && styles.searchButtonDisabled]}
+                  onPress={handleSearch}
+                  disabled={query.trim().length < 2 || searching}
+                >
+                  <MagnifyingGlassIcon size={20} color={colors.text} weight="bold" />
+                </Pressable>
+              </View>
+
+              {searching ? (
+                <View style={styles.centered}>
+                  <ActivityIndicator color={colors.tint} />
+                </View>
+              ) : results.length > 0 ? (
+                <FlatList
+                  data={results}
+                  keyExtractor={(item) => item.google_place_id}
+                  keyboardShouldPersistTaps="handled"
+                  style={styles.resultsList}
+                  renderItem={({ item }) => (
+                    <Pressable
+                      style={styles.resultItem}
+                      onPress={() => setSelectedPlace(item)}
+                      disabled={submitting}
+                    >
+                      <Text style={styles.resultName}>{item.name}</Text>
+                      <Text style={styles.resultAddress}>{item.address}</Text>
+                    </Pressable>
+                  )}
+                />
+              ) : hasSearched && results.length === 0 ? (
+                <View style={styles.centered}>
+                  <Text style={styles.emptyText}>{t.noResults}</Text>
+                </View>
+              ) : (
+                <View style={styles.centered}>
+                  <Text style={styles.emptyText}>{t.searchInstruction}</Text>
+                </View>
+              )}
+            </>
           )}
 
           {submitting && (

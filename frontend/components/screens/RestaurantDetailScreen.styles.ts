@@ -21,16 +21,20 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 8,
   },
-  cuisineBadge: {
-    color: colors.textTertiary,
-    fontSize: 14,
+  cuisineBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     backgroundColor: colors.backgroundInput,
     alignSelf: 'flex-start',
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 8,
-    overflow: 'hidden',
     marginBottom: 8,
+  },
+  cuisineBadge: {
+    color: colors.textTertiary,
+    fontSize: 14,
   },
   address: {
     color: colors.textMuted,

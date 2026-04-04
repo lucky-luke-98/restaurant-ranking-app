@@ -8,12 +8,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   FlatList,
+  ScrollView,
   ActivityIndicator,
 } from 'react-native'
 import { useTranslation } from '@/services/LanguageContext'
 import { useThemeColors } from '@/hooks/useThemeColors'
 import { createStyles } from './AddVisitedModal.styles'
-import { MagnifyingGlassIcon, HeartIcon } from 'phosphor-react-native'
+import { MagnifyingGlassIcon, HeartIcon, CaretLeftIcon } from 'phosphor-react-native'
+import { CUISINE_TYPES, CUISINE_ICONS, CUISINE_LABEL_KEYS, type CuisineType } from '@/constants/CuisineTypes'
 
 interface PlaceResult {
   google_place_id: string
@@ -37,7 +39,7 @@ interface AddVisitedModalProps {
   onCreated: () => void
   wishlistRestaurants: WishlistRestaurant[]
   onSelectFromWishlist: (restaurantId: string) => Promise<void>
-  onSubmitFromSearch: (googlePlaceId: string) => Promise<void>
+  onSubmitFromSearch: (googlePlaceId: string, cuisineType: CuisineType) => Promise<void>
 }
 
 export default function AddVisitedModal({
@@ -58,6 +60,7 @@ export default function AddVisitedModal({
   const [hasSearched, setHasSearched] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedPlace, setSelectedPlace] = useState<PlaceResult | null>(null)
 
   const handleSearch = async () => {
     if (query.trim().length < 2) return
@@ -78,11 +81,16 @@ export default function AddVisitedModal({
     }
   }
 
-  const handleSelectPlace = async (place: PlaceResult) => {
+  const handleSelectPlace = (place: PlaceResult) => {
+    setSelectedPlace(place)
+  }
+
+  const handleSelectCuisine = async (cuisineType: CuisineType) => {
+    if (!selectedPlace) return
     setSubmitting(true)
     setError(null)
     try {
-      await onSubmitFromSearch(place.google_place_id)
+      await onSubmitFromSearch(selectedPlace.google_place_id, cuisineType)
       onCreated()
     } catch (err: any) {
       setError(err.message ?? t.failedAddRestaurant)
@@ -109,11 +117,17 @@ export default function AddVisitedModal({
     setQuery('')
     setResults([])
     setHasSearched(false)
+    setSelectedPlace(null)
     setError(null)
     onClose()
   }
 
   const handleBack = () => {
+    if (selectedPlace) {
+      setSelectedPlace(null)
+      setError(null)
+      return
+    }
     setMode('choose')
     setQuery('')
     setResults([])
@@ -194,7 +208,7 @@ export default function AddVisitedModal({
             />
           )}
 
-          {mode === 'search' && (
+          {mode === 'search' && !selectedPlace && (
             <>
               <View style={styles.searchRow}>
                 <TextInput
@@ -247,6 +261,29 @@ export default function AddVisitedModal({
                 </View>
               )}
             </>
+          )}
+
+          {mode === 'search' && selectedPlace && (
+            <ScrollView keyboardShouldPersistTaps="handled">
+              <Text style={styles.cuisinePrompt}>{t.selectCuisineType}</Text>
+              <View style={styles.cuisineGrid}>
+                {CUISINE_TYPES.map((ct) => {
+                  const Icon = CUISINE_ICONS[ct]
+                  const labelKey = CUISINE_LABEL_KEYS[ct] as keyof typeof t
+                  return (
+                    <Pressable
+                      key={ct}
+                      style={({ pressed }) => [styles.cuisineChip, pressed && styles.cuisineChipPressed]}
+                      onPress={() => handleSelectCuisine(ct)}
+                      disabled={submitting}
+                    >
+                      <Icon size={20} color={colors.text} weight="duotone" />
+                      <Text style={styles.cuisineChipText}>{t[labelKey] as string}</Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
+            </ScrollView>
           )}
 
           {submitting && (

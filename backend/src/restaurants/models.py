@@ -63,14 +63,28 @@ class VisitedEntry(BaseModel):
 _PLACE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{20,}$")
 
 
+CUISINE_TYPES = [
+    "brewery", "bar", "cafe", "italian", "japanese", "chinese", "asian",
+    "indian", "mexican", "greek", "oriental", "burger", "sandwiches",
+    "bbq", "fusion", "others",
+]
+
 class CreateRestaurantRequest(BaseModel):
     google_place_id: str = Field(..., description="The Google Place ID of the restaurant.")
+    cuisine_type: str = Field("others", description="Cuisine type chosen by the user.")
 
     @field_validator("google_place_id")
     @classmethod
     def validate_google_place_id(cls, v: str) -> str:
         if not _PLACE_ID_RE.match(v):
             raise ValueError("Invalid Google Place ID format.")
+        return v
+
+    @field_validator("cuisine_type")
+    @classmethod
+    def validate_cuisine_type(cls, v: str) -> str:
+        if v not in CUISINE_TYPES:
+            raise ValueError(f"Invalid cuisine type. Must be one of: {', '.join(CUISINE_TYPES)}")
         return v
 
 class CreateRestaurantReviewRequest(BaseModel):

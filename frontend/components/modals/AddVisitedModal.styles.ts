@@ -114,6 +114,35 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 13,
     marginTop: 3,
   },
+  cuisinePrompt: {
+    color: colors.textTertiary,
+    fontSize: 15,
+    fontWeight: '600',
+    marginBottom: 14,
+  },
+  cuisineGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingBottom: 16,
+  },
+  cuisineChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.backgroundInput,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  cuisineChipPressed: {
+    backgroundColor: colors.backgroundButtonStrong,
+  },
+  cuisineChipText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '500',
+  },
   submittingOverlay: {
     position: 'absolute',
     top: 0,

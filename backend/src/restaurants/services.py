@@ -139,6 +139,7 @@ def create_one_restaurant(request: CreateRestaurantRequest) -> str | None:
         return existing["restaurant_id"]
 
     place_data = _fetch_place_details(request.google_place_id)
+    place_data["cuisine_type"] = request.cuisine_type
     restaurant = Restaurant(**place_data)
     result = collection.insert_one(restaurant.model_dump())
     if result.acknowledged:

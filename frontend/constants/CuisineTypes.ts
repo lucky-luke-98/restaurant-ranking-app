@@ -1,0 +1,77 @@
+import {
+  BeerBottleIcon,
+  WineIcon,
+  CoffeeIcon,
+  PizzaIcon,
+  FishIcon,
+  BowlFoodIcon,
+  PepperIcon,
+  CactusIcon,
+  LeafIcon,
+  CookingPotIcon,
+  HamburgerIcon,
+  BreadIcon,
+  FireIcon,
+  SparkleIcon,
+  DotsThreeIcon,
+} from 'phosphor-react-native'
+import type { ComponentType } from 'react'
+
+export const CUISINE_TYPES = [
+  'brewery',
+  'bar',
+  'cafe',
+  'italian',
+  'japanese',
+  'chinese',
+  'asian',
+  'indian',
+  'mexican',
+  'greek',
+  'oriental',
+  'burger',
+  'sandwiches',
+  'bbq',
+  'fusion',
+  'others',
+] as const
+
+export type CuisineType = (typeof CUISINE_TYPES)[number]
+
+export const CUISINE_LABEL_KEYS: Record<CuisineType, string> = {
+  brewery: 'cuisineBrewery',
+  bar: 'cuisineBar',
+  cafe: 'cuisineCafe',
+  italian: 'cuisineItalian',
+  japanese: 'cuisineJapanese',
+  chinese: 'cuisineChinese',
+  asian: 'cuisineAsian',
+  indian: 'cuisineIndian',
+  mexican: 'cuisineMexican',
+  greek: 'cuisineGreek',
+  oriental: 'cuisineOriental',
+  burger: 'cuisineBurger',
+  sandwiches: 'cuisineSandwiches',
+  bbq: 'cuisineBbq',
+  fusion: 'cuisineFusion',
+  others: 'cuisineOthers',
+}
+
+export const CUISINE_ICONS: Record<CuisineType, ComponentType<any>> = {
+  brewery: BeerBottleIcon,
+  bar: WineIcon,
+  cafe: CoffeeIcon,
+  italian: PizzaIcon,
+  japanese: FishIcon,
+  chinese: BowlFoodIcon,
+  asian: BowlFoodIcon,
+  indian: PepperIcon,
+  mexican: CactusIcon,
+  greek: LeafIcon,
+  oriental: CookingPotIcon,
+  burger: HamburgerIcon,
+  sandwiches: BreadIcon,
+  bbq: FireIcon,
+  fusion: SparkleIcon,
+  others: DotsThreeIcon,
+}
