@@ -106,13 +106,14 @@ def _fetch_place_details(google_place_id: str) -> dict:
 
     location = data.get("location", {})
 
-    # Derive cuisine_type from Google's place types
+    # Derive cuisine_type from Google's place types (lowercase to match CUISINE_TYPES)
     google_types = set(data.get("types", []))
-    cuisine_type = "Restaurant"
-    food_types = {"bakery", "cafe", "bar", "meal_delivery", "meal_takeaway"}
-    matched = google_types & food_types
-    if matched:
-        cuisine_type = next(iter(matched)).replace("_", " ").title()
+    cuisine_type = "others"
+    type_mapping = {"bakery": "others", "cafe": "cafe", "bar": "bar", "meal_delivery": "others", "meal_takeaway": "others"}
+    for gt in google_types:
+        if gt in type_mapping:
+            cuisine_type = type_mapping[gt]
+            break
 
     return {
         "google_place_id": google_place_id,
@@ -135,9 +136,14 @@ def create_one_restaurant(request: CreateRestaurantRequest, user_id: str) -> str
     """
     collection = get_mongo_collection(collection_name=settings.mongo_restaurants_collection)
 
-    # Return existing restaurant if already present
+    # Return existing restaurant if already present, updating cuisine_type if needed
     existing = collection.find_one({"google_place_id": request.google_place_id})
     if existing:
+        if existing.get("cuisine_type") != request.cuisine_type:
+            collection.update_one(
+                {"restaurant_id": existing["restaurant_id"]},
+                {"$set": {"cuisine_type": request.cuisine_type}},
+            )
         return existing["restaurant_id"]
 
     place_data = _fetch_place_details(request.google_place_id)
