@@ -1,3 +1,4 @@
+from datetime import date, datetime, timezone
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -21,8 +22,10 @@ class RestaurantReview(BaseModel):
     user_id: str
     restaurant_id: str
     cleanliness_rating: float
-    experience_rating: int
+    experience_rating: float
     comment: str | None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    visited_at: date | None = None
 
 class FoodReview(BaseModel):
     food_review_id: str = Field(default_factory=lambda: str(uuid4()))
@@ -32,6 +35,14 @@ class FoodReview(BaseModel):
     price: float
     rating: float
     comment: str | None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    visited_at: date | None = None
+
+class FoodReviewImage(BaseModel):
+    image_id: str = Field(default_factory=lambda: str(uuid4()))
+    food_review_id: str
+    data: str  # base64-encoded image
+    content_type: str = "image/jpeg"
 
 class WishlistEntry(BaseModel):
     entry_id: str = Field(default_factory=lambda: str(uuid4()))
@@ -55,6 +66,7 @@ class CreateRestaurantReviewRequest(BaseModel):
     cleanliness_rating: float = Field(..., ge=0.0, le=10.0, description="Cleanliness rating given by the user (1 to 10).")
     experience_rating: float = Field(..., ge=0.0, le=10.0, description="Overall experience rating given by the user (1 to 10).")
     comment: str | None = Field(None, description="Optional comment provided by the user.")
+    visited_at: date | None = Field(None, description="Optional date when the restaurant was visited.")
 
 class CreateFoodReviewRequest(BaseModel):
     user_id: str = Field(..., description="ID of the user submitting the food review.")
@@ -63,6 +75,8 @@ class CreateFoodReviewRequest(BaseModel):
     price: float = Field(..., gt=0.0, description="The price of the food.")
     rating: float = Field(..., ge=0.0, le=10.0, description="Rating given by the user (1 to 10).")
     comment: str | None = Field(None, description="Optional comment provided by the user.")
+    images: list[str] = Field(default_factory=list, description="List of base64-encoded images.")
+    visited_at: date | None = Field(None, description="Optional date when the restaurant was visited.")
 
 class CreateWishlistEntryRequest(BaseModel):
     user_id: str = Field(..., description="ID of the user submitting the review.")

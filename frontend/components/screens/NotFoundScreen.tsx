@@ -1,31 +1,21 @@
-import { StyleSheet } from 'react-native'
 import { Link, Stack, type Href } from 'expo-router'
 import { ThemedText } from '@/components/ThemedText'
 import { ThemedView } from '@/components/ThemedView'
+import { useTranslation } from '@/services/LanguageContext'
+import { styles } from './NotFoundScreen.styles'
 
 export default function NotFoundScreen() {
+  const { t } = useTranslation()
+
   return (
     <>
-      <Stack.Screen options={{ title: 'Oops!' }} />
+      <Stack.Screen options={{ title: t.oops }} />
       <ThemedView style={styles.container}>
-        <ThemedText type="title">This screen does not exist.</ThemedText>
+        <ThemedText type="title">{t.screenNotExist}</ThemedText>
         <Link href={'/' as Href} style={styles.link}>
-          <ThemedText type="link">Go to home screen!</ThemedText>
+          <ThemedText type="link">{t.goHome}</ThemedText>
         </Link>
       </ThemedView>
     </>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  link: {
-    marginTop: 15,
-    paddingVertical: 15,
-  },
-})

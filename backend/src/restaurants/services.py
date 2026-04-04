@@ -7,6 +7,7 @@ from src.restaurants.models import (
     Restaurant,
     RestaurantReview,
     FoodReview,
+    FoodReviewImage,
     WishlistEntry,
     VisitedEntry,
     PlaceSearchResult,
@@ -187,7 +188,7 @@ def create_one_restaurant_review(request: CreateRestaurantReviewRequest) -> str 
 
     collection = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
     review = RestaurantReview(**request.model_dump())
-    result = collection.insert_one(review.model_dump())
+    result = collection.insert_one(review.model_dump(mode="json"))
     if result.acknowledged:
         return review.review_id
     return None
@@ -196,12 +197,19 @@ def create_one_restaurant_review(request: CreateRestaurantReviewRequest) -> str 
 @service
 def get_reviews_by_restaurant(request: GetReviewsByRestaurantRequest) -> list[dict]:
     """
-    Returns all reviews for a given restaurant.
+    Returns all reviews for a given restaurant, enriched with reviewer first_name.
     """
     collection = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
+    users_collection = get_mongo_collection(collection_name=settings.mongo_users_collection)
     reviews = list(collection.find({"restaurant_id": request.restaurant_id}))
+    user_ids = list({r["user_id"] for r in reviews})
+    user_map = {}
+    if user_ids:
+        users = users_collection.find({"user_id": {"$in": user_ids}}, {"user_id": 1, "first_name": 1})
+        user_map = {u["user_id"]: u.get("first_name", "") for u in users}
     for review in reviews:
         review.pop("_id", None)
+        review["first_name"] = user_map.get(review["user_id"], "")
     return reviews
 
 
@@ -241,27 +249,45 @@ def get_reviewed_restaurant_ids_by_user(request: GetReviewedRestaurantIdsByUserR
 def create_food_review(request: CreateFoodReviewRequest) -> str | None:
     """
     Creates a food review entry based on provided information.
+    Also stores any attached images in the images collection.
     """
     if not verify_user_entry(request.user_id):
         raise ValueError("User ID not found in the db. Please set the user first.")
 
     collection = get_mongo_collection(collection_name=settings.mongo_food_reviews_collection)
-    food_review = FoodReview(**request.model_dump())
-    result = collection.insert_one(food_review.model_dump())
-    if result.acknowledged:
-        return food_review.food_review_id
-    return None
+    review_data = request.model_dump(exclude={"images"})
+    food_review = FoodReview(**review_data)
+    result = collection.insert_one(food_review.model_dump(mode="json"))
+    if not result.acknowledged:
+        return None
+
+    MAX_IMAGE_BYTES = 12_000_000  # ~12MB base64 limit per image (must fit in 16MB BSON doc)
+    valid_images = [img for img in request.images if len(img) <= MAX_IMAGE_BYTES]
+    if valid_images:
+        images_collection = get_mongo_collection(collection_name=settings.mongo_images_collection)
+        for img_data in valid_images:
+            doc = FoodReviewImage(food_review_id=food_review.food_review_id, data=img_data).model_dump()
+            images_collection.insert_one(doc)
+
+    return food_review.food_review_id
 
 
 @service
 def get_food_reviews_by_restaurant(request: GetFoodReviewsByRestaurantRequest) -> list[dict]:
     """
-    Returns all food reviews for a given restaurant.
+    Returns all food reviews for a given restaurant, enriched with reviewer first_name.
     """
     collection = get_mongo_collection(collection_name=settings.mongo_food_reviews_collection)
+    users_collection = get_mongo_collection(collection_name=settings.mongo_users_collection)
     food_reviews = list(collection.find({"restaurant_id": request.restaurant_id}))
+    user_ids = list({r["user_id"] for r in food_reviews})
+    user_map = {}
+    if user_ids:
+        users = users_collection.find({"user_id": {"$in": user_ids}}, {"user_id": 1, "first_name": 1})
+        user_map = {u["user_id"]: u.get("first_name", "") for u in users}
     for review in food_reviews:
         review.pop("_id", None)
+        review["first_name"] = user_map.get(review["user_id"], "")
     return food_reviews
 
 
@@ -278,11 +304,27 @@ def get_food_review_by_id(food_review_id: str) -> dict | None:
 @service
 def delete_food_review(request: DeleteFoodReviewRequest) -> bool:
     """
-    Deletes a food review by its ID.
+    Deletes a food review by its ID and all associated images.
     """
     collection = get_mongo_collection(collection_name=settings.mongo_food_reviews_collection)
     result = collection.delete_one({"food_review_id": request.food_review_id})
-    return result.deleted_count > 0
+    if result.deleted_count > 0:
+        images_collection = get_mongo_collection(collection_name=settings.mongo_images_collection)
+        images_collection.delete_many({"food_review_id": request.food_review_id})
+        return True
+    return False
+
+
+@service
+def get_images_by_food_review(food_review_id: str) -> list[dict]:
+    """
+    Returns all images for a given food review.
+    """
+    collection = get_mongo_collection(collection_name=settings.mongo_images_collection)
+    images = list(collection.find({"food_review_id": food_review_id}))
+    for img in images:
+        img.pop("_id", None)
+    return images
 
 
 # ==================== wishlist ==================== #

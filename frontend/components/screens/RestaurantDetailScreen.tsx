@@ -1,8 +1,7 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import {
   View,
   Text,
-  StyleSheet,
   ActivityIndicator,
   ScrollView,
   Pressable,
@@ -10,11 +9,16 @@ import {
   Platform,
 } from 'react-native'
 import { useLocalSearchParams, Stack } from 'expo-router'
-import { PlusIcon, TrashIcon } from 'phosphor-react-native'
+import { PlusIcon } from 'phosphor-react-native'
 import apiClient, { ApiError } from '@/services/apiClient'
 import { useAuth } from '@/services/AuthContext'
-import AddReviewModal from '@/components/AddReviewModal'
-import AddFoodReviewModal from '@/components/AddFoodReviewModal'
+import ReviewCard from '@/components/cards/ReviewCard'
+import FoodReviewCard from '@/components/cards/FoodReviewCard'
+import AddReviewModal from '@/components/modals/AddReviewModal'
+import AddFoodReviewModal from '@/components/modals/AddFoodReviewModal'
+import { useTranslation } from '@/services/LanguageContext'
+import { useThemeColors } from '@/hooks/useThemeColors'
+import { createStyles } from './RestaurantDetailScreen.styles'
 
 interface Restaurant {
   restaurant_id: string
@@ -31,6 +35,16 @@ interface Review {
   cleanliness_rating: number
   experience_rating: number
   comment?: string
+  created_at?: string
+  visited_at?: string
+  first_name?: string
+}
+
+interface FoodReviewImage {
+  image_id: string
+  food_review_id: string
+  data: string
+  content_type: string
 }
 
 interface FoodReview {
@@ -40,16 +54,23 @@ interface FoodReview {
   price: number
   rating: number
   comment?: string
+  created_at?: string
+  visited_at?: string
+  first_name?: string
+  images?: FoodReviewImage[]
 }
 
-function confirmDelete(message: string): Promise<boolean> {
+function confirmDeletePlatform(
+  message: string,
+  labels: { confirm: string; cancel: string; delete: string },
+): Promise<boolean> {
   if (Platform.OS === 'web') {
     return Promise.resolve(window.confirm(message))
   }
   return new Promise((resolve) => {
-    Alert.alert('Confirm', message, [
-      { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-      { text: 'Delete', style: 'destructive', onPress: () => resolve(true) },
+    Alert.alert(labels.confirm, message, [
+      { text: labels.cancel, style: 'cancel', onPress: () => resolve(false) },
+      { text: labels.delete, style: 'destructive', onPress: () => resolve(true) },
     ])
   })
 }
@@ -57,6 +78,9 @@ function confirmDelete(message: string): Promise<boolean> {
 export default function RestaurantDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const { user } = useAuth()
+  const { t } = useTranslation()
+  const colors = useThemeColors()
+  const styles = useMemo(() => createStyles(colors), [colors])
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null)
   const [reviews, setReviews] = useState<Review[]>([])
@@ -65,6 +89,8 @@ export default function RestaurantDetailScreen() {
   const [error, setError] = useState<string | null>(null)
   const [reviewModalVisible, setReviewModalVisible] = useState(false)
   const [foodReviewModalVisible, setFoodReviewModalVisible] = useState(false)
+
+  const [imagesLoading, setImagesLoading] = useState(false)
 
   const fetchData = useCallback(() => {
     setLoading(true)
@@ -75,8 +101,38 @@ export default function RestaurantDetailScreen() {
     ])
       .then(([restaurantData, reviewsData, foodReviewsData]) => {
         setRestaurant(restaurantData.restaurant)
-        setReviews(reviewsData.reviews)
-        setFoodReviews(foodReviewsData.food_reviews)
+        const sortOwn = <T extends { user_id: string }>(items: T[]) =>
+          [...items].sort((a, b) => {
+            const aOwn = user && a.user_id === user.user_id ? 0 : 1
+            const bOwn = user && b.user_id === user.user_id ? 0 : 1
+            return aOwn - bOwn
+          })
+        setReviews(sortOwn(reviewsData.reviews))
+        setFoodReviews(sortOwn(foodReviewsData.food_reviews))
+        setLoading(false)
+
+        // Load images in the background
+        setImagesLoading(true)
+        Promise.all(
+          foodReviewsData.food_reviews.map(async (fr) => {
+            try {
+              const imgData = await apiClient.get<{ images: FoodReviewImage[] }>(
+                `/restaurant/reviews/food/${fr.food_review_id}/images`
+              )
+              return { id: fr.food_review_id, images: imgData.images }
+            } catch {
+              return { id: fr.food_review_id, images: [] as FoodReviewImage[] }
+            }
+          })
+        ).then((results) => {
+          setFoodReviews((prev) =>
+            prev.map((fr) => {
+              const match = results.find((r) => r.id === fr.food_review_id)
+              return match ? { ...fr, images: match.images } : fr
+            })
+          )
+          setImagesLoading(false)
+        })
       })
       .catch((err) => {
         const message =
@@ -84,8 +140,8 @@ export default function RestaurantDetailScreen() {
             ? `Error ${err.status}: ${err.body}`
             : err.message
         setError(message)
+        setLoading(false)
       })
-      .finally(() => setLoading(false))
   }, [id])
 
   useEffect(() => {
@@ -96,6 +152,7 @@ export default function RestaurantDetailScreen() {
     cleanliness_rating: number
     experience_rating: number
     comment: string
+    visited_at?: string
   }) => {
     await apiClient.post('/restaurant/reviews', {
       user_id: user!.user_id,
@@ -106,8 +163,10 @@ export default function RestaurantDetailScreen() {
     fetchData()
   }
 
+  const deleteLabels = { confirm: t.confirm, cancel: t.cancel, delete: t.delete }
+
   const handleDeleteReview = async (reviewId: string) => {
-    const confirmed = await confirmDelete('Delete this review?')
+    const confirmed = await confirmDeletePlatform(t.confirmDeleteReview, deleteLabels)
     if (!confirmed) return
     await apiClient.delete(`/restaurant/reviews/${reviewId}`)
     fetchData()
@@ -118,6 +177,8 @@ export default function RestaurantDetailScreen() {
     price: number
     rating: number
     comment: string
+    images: string[]
+    visited_at?: string
   }) => {
     await apiClient.post('/restaurant/reviews/food', {
       user_id: user!.user_id,
@@ -129,7 +190,7 @@ export default function RestaurantDetailScreen() {
   }
 
   const handleDeleteFoodReview = async (foodReviewId: string) => {
-    const confirmed = await confirmDelete('Delete this food review?')
+    const confirmed = await confirmDeletePlatform(t.confirmDeleteFoodReview, deleteLabels)
     if (!confirmed) return
     await apiClient.delete(`/restaurant/reviews/food/${foodReviewId}`)
     fetchData()
@@ -138,7 +199,7 @@ export default function RestaurantDetailScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#fff" />
+        <ActivityIndicator size="large" color={colors.tint} />
       </View>
     )
   }
@@ -146,14 +207,14 @@ export default function RestaurantDetailScreen() {
   if (error || !restaurant) {
     return (
       <View style={styles.centered}>
-        <Text style={styles.errorText}>{error ?? 'Restaurant not found.'}</Text>
+        <Text style={styles.errorText}>{error ?? t.restaurantNotFound}</Text>
       </View>
     )
   }
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Restaurants / ' + restaurant.name }} />
+      <Stack.Screen options={{ title: t.restaurantsSlash(restaurant.name) }} />
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.infoSection}>
           <Text style={styles.name}>{restaurant.name}</Text>
@@ -162,83 +223,54 @@ export default function RestaurantDetailScreen() {
             {`${restaurant.street}, ${restaurant.city}, ${restaurant.country}`}
           </Text>
         </View>
+
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Reviews</Text>
+            <Text style={styles.sectionTitle}>{t.sectionReviews}</Text>
             <Pressable
               style={styles.addButton}
               onPress={() => setReviewModalVisible(true)}
             >
-              <PlusIcon size={16} color="#fff" weight="bold" />
-              <Text style={styles.addButtonText}>Add</Text>
+              <PlusIcon size={16} color={colors.text} weight="bold" />
+              <Text style={styles.addButtonText}>{t.add}</Text>
             </Pressable>
           </View>
           {reviews.length === 0 ? (
-            <Text style={styles.emptyText}>No reviews yet.</Text>
+            <Text style={styles.emptyText}>{t.emptyReviews}</Text>
           ) : (
             reviews.map((review) => (
-              <View key={review.review_id} style={styles.reviewCard}>
-                <View style={styles.ratingRow}>
-                  <Text style={styles.ratingLabel}>Cleanliness</Text>
-                  <Text style={styles.ratingValue}>{`${review.cleanliness_rating}/10`}</Text>
-                </View>
-                <View style={styles.ratingRow}>
-                  <Text style={styles.ratingLabel}>Experience</Text>
-                  <Text style={styles.ratingValue}>{`${review.experience_rating}/10`}</Text>
-                </View>
-                {review.comment ? (
-                  <Text style={styles.comment}>{review.comment}</Text>
-                ) : null}
-                {user && review.user_id === user.user_id ? (
-                  <Pressable
-                    style={styles.deleteButton}
-                    onPress={() => handleDeleteReview(review.review_id)}
-                  >
-                    <TrashIcon size={14} color="#ff6b6b" />
-                    <Text style={styles.deleteButtonText}>Delete</Text>
-                  </Pressable>
-                ) : null}
-              </View>
+              <ReviewCard
+                key={review.review_id}
+                review={review}
+                isOwn={!!user && review.user_id === user.user_id}
+                onDelete={handleDeleteReview}
+              />
             ))
           )}
         </View>
+
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Food Reviews</Text>
+            <Text style={styles.sectionTitle}>{t.sectionFoodReviews}</Text>
             <Pressable
               style={styles.addButton}
               onPress={() => setFoodReviewModalVisible(true)}
             >
-              <PlusIcon size={16} color="#fff" weight="bold" />
-              <Text style={styles.addButtonText}>Add</Text>
+              <PlusIcon size={16} color={colors.text} weight="bold" />
+              <Text style={styles.addButtonText}>{t.add}</Text>
             </Pressable>
           </View>
           {foodReviews.length === 0 ? (
-            <Text style={styles.emptyText}>No food reviews yet.</Text>
+            <Text style={styles.emptyText}>{t.emptyFoodReviews}</Text>
           ) : (
             foodReviews.map((review) => (
-              <View key={review.food_review_id} style={styles.reviewCard}>
-                <View style={styles.foodHeader}>
-                  <Text style={styles.foodName}>{review.food_name}</Text>
-                  <Text style={styles.foodPrice}>{`${review.price.toFixed(2)} €`}</Text>
-                </View>
-                <View style={styles.ratingRow}>
-                  <Text style={styles.ratingLabel}>Rating</Text>
-                  <Text style={styles.ratingValue}>{`${review.rating}/10`}</Text>
-                </View>
-                {review.comment ? (
-                  <Text style={styles.comment}>{review.comment}</Text>
-                ) : null}
-                {user && review.user_id === user.user_id ? (
-                  <Pressable
-                    style={styles.deleteButton}
-                    onPress={() => handleDeleteFoodReview(review.food_review_id)}
-                  >
-                    <TrashIcon size={14} color="#ff6b6b" />
-                    <Text style={styles.deleteButtonText}>Delete</Text>
-                  </Pressable>
-                ) : null}
-              </View>
+              <FoodReviewCard
+                key={review.food_review_id}
+                review={review}
+                isOwn={!!user && review.user_id === user.user_id}
+                imagesLoading={imagesLoading}
+                onDelete={handleDeleteFoodReview}
+              />
             ))
           )}
         </View>
@@ -258,132 +290,3 @@ export default function RestaurantDetailScreen() {
     </>
   )
 }
-
-const styles = StyleSheet.create({
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  container: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  infoSection: {
-    marginBottom: 24,
-  },
-  name: {
-    color: 'white',
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  cuisineBadge: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  address: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 14,
-  },
-  section: {
-    marginBottom: 24,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: '600',
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  addButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  reviewCard: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 10,
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  ratingLabel: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 14,
-  },
-  ratingValue: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  foodHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  foodName: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  foodPrice: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 14,
-  },
-  comment: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 13,
-    fontStyle: 'italic',
-    marginTop: 6,
-  },
-  deleteButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    alignSelf: 'flex-end',
-    marginTop: 8,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-  },
-  deleteButtonText: {
-    color: '#ff6b6b',
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  emptyText: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 14,
-  },
-  errorText: {
-    color: '#ff6b6b',
-    fontSize: 16,
-    textAlign: 'center',
-  },
-})

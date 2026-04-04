@@ -1,9 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   View,
   Text,
   TextInput,
-  StyleSheet,
   Modal,
   Pressable,
   KeyboardAvoidingView,
@@ -11,6 +10,9 @@ import {
   FlatList,
   ActivityIndicator,
 } from 'react-native'
+import { useTranslation } from '@/services/LanguageContext'
+import { useThemeColors } from '@/hooks/useThemeColors'
+import { createStyles } from './AddVisitedModal.styles'
 import { MagnifyingGlassIcon, HeartIcon } from 'phosphor-react-native'
 
 interface PlaceResult {
@@ -46,6 +48,9 @@ export default function AddVisitedModal({
   onSelectFromWishlist,
   onSubmitFromSearch,
 }: AddVisitedModalProps) {
+  const { t } = useTranslation()
+  const colors = useThemeColors()
+  const styles = useMemo(() => createStyles(colors), [colors])
   const [mode, setMode] = useState<Mode>('choose')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<PlaceResult[]>([])
@@ -80,7 +85,7 @@ export default function AddVisitedModal({
       await onSubmitFromSearch(place.google_place_id)
       onCreated()
     } catch (err: any) {
-      setError(err.message ?? 'Failed to add restaurant')
+      setError(err.message ?? t.failedAddRestaurant)
     } finally {
       setSubmitting(false)
     }
@@ -93,7 +98,7 @@ export default function AddVisitedModal({
       await onSelectFromWishlist(restaurantId)
       onCreated()
     } catch (err: any) {
-      setError(err.message ?? 'Failed to add restaurant')
+      setError(err.message ?? t.failedAddRestaurant)
     } finally {
       setSubmitting(false)
     }
@@ -125,11 +130,11 @@ export default function AddVisitedModal({
         <View style={styles.sheet}>
           <View style={styles.header}>
             <Text style={styles.title}>
-              {mode === 'choose' ? 'Add Visited' : mode === 'wishlist' ? 'From Wishlist' : 'Search Restaurant'}
+              {mode === 'choose' ? t.addVisitedTitle : mode === 'wishlist' ? t.fromWishlistTitle : t.searchRestaurantTitle}
             </Text>
             {mode !== 'choose' ? (
               <Pressable onPress={handleBack} hitSlop={12}>
-                <Text style={styles.backButton}>Back</Text>
+                <Text style={styles.backButton}>{t.back}</Text>
               </Pressable>
             ) : (
               <Pressable onPress={handleClose} hitSlop={12}>
@@ -144,20 +149,20 @@ export default function AddVisitedModal({
             <View style={styles.chooseContainer}>
               {wishlistRestaurants.length > 0 && (
                 <Pressable style={styles.chooseOption} onPress={() => setMode('wishlist')}>
-                  <HeartIcon size={24} color="#fff" weight="fill" />
+                  <HeartIcon size={24} color={colors.text} weight="fill" />
                   <View style={styles.chooseTextContainer}>
-                    <Text style={styles.chooseOptionTitle}>From Wishlist</Text>
+                    <Text style={styles.chooseOptionTitle}>{t.fromWishlistOption}</Text>
                     <Text style={styles.chooseOptionSubtitle}>
-                      {wishlistRestaurants.length} restaurant{wishlistRestaurants.length !== 1 ? 's' : ''}
+                      {t.restaurantCount(wishlistRestaurants.length)}
                     </Text>
                   </View>
                 </Pressable>
               )}
               <Pressable style={styles.chooseOption} onPress={() => setMode('search')}>
-                <MagnifyingGlassIcon size={24} color="#fff" weight="bold" />
+                <MagnifyingGlassIcon size={24} color={colors.text} weight="bold" />
                 <View style={styles.chooseTextContainer}>
-                  <Text style={styles.chooseOptionTitle}>Search New</Text>
-                  <Text style={styles.chooseOptionSubtitle}>Find on Google Maps</Text>
+                  <Text style={styles.chooseOptionTitle}>{t.searchNewOption}</Text>
+                  <Text style={styles.chooseOptionSubtitle}>{t.findOnGoogleMaps}</Text>
                 </View>
               </Pressable>
             </View>
@@ -183,7 +188,7 @@ export default function AddVisitedModal({
               )}
               ListEmptyComponent={
                 <View style={styles.centered}>
-                  <Text style={styles.emptyText}>Your wishlist is empty</Text>
+                  <Text style={styles.emptyText}>{t.wishlistEmpty}</Text>
                 </View>
               }
             />
@@ -197,8 +202,8 @@ export default function AddVisitedModal({
                   value={query}
                   onChangeText={setQuery}
                   onSubmitEditing={handleSearch}
-                  placeholder="Search for a restaurant..."
-                  placeholderTextColor="rgba(255,255,255,0.3)"
+                  placeholder={t.searchPlaceholder}
+                  placeholderTextColor={colors.textPlaceholder}
                   returnKeyType="search"
                   autoFocus
                 />
@@ -207,13 +212,13 @@ export default function AddVisitedModal({
                   onPress={handleSearch}
                   disabled={query.trim().length < 2 || searching}
                 >
-                  <MagnifyingGlassIcon size={20} color="#fff" weight="bold" />
+                  <MagnifyingGlassIcon size={20} color={colors.text} weight="bold" />
                 </Pressable>
               </View>
 
               {searching ? (
                 <View style={styles.centered}>
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color={colors.tint} />
                 </View>
               ) : results.length > 0 ? (
                 <FlatList
@@ -234,11 +239,11 @@ export default function AddVisitedModal({
                 />
               ) : hasSearched && results.length === 0 ? (
                 <View style={styles.centered}>
-                  <Text style={styles.emptyText}>No results found</Text>
+                  <Text style={styles.emptyText}>{t.noResults}</Text>
                 </View>
               ) : (
                 <View style={styles.centered}>
-                  <Text style={styles.emptyText}>Type a restaurant name to search</Text>
+                  <Text style={styles.emptyText}>{t.searchInstruction}</Text>
                 </View>
               )}
             </>
@@ -246,8 +251,8 @@ export default function AddVisitedModal({
 
           {submitting && (
             <View style={styles.submittingOverlay}>
-              <ActivityIndicator size="large" color="#fff" />
-              <Text style={styles.submittingText}>Adding restaurant...</Text>
+              <ActivityIndicator size="large" color={colors.tint} />
+              <Text style={styles.submittingText}>{t.addingRestaurant}</Text>
             </View>
           )}
         </View>
@@ -255,135 +260,3 @@ export default function AddVisitedModal({
     </Modal>
   )
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  sheet: {
-    backgroundColor: '#1c1c1e',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    maxHeight: '80%',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  title: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  closeButton: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 20,
-  },
-  backButton: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 16,
-  },
-  error: {
-    color: '#ff6b6b',
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  chooseContainer: {
-    gap: 12,
-    paddingVertical: 8,
-  },
-  chooseOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 12,
-    padding: 16,
-  },
-  chooseTextContainer: {
-    flex: 1,
-  },
-  chooseOptionTitle: {
-    color: 'white',
-    fontSize: 17,
-    fontWeight: '600',
-  },
-  chooseOptionSubtitle: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 13,
-    marginTop: 2,
-  },
-  searchRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 12,
-  },
-  searchInput: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 10,
-    padding: 14,
-    color: 'white',
-    fontSize: 16,
-  },
-  searchButton: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 10,
-    width: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  searchButtonDisabled: {
-    opacity: 0.3,
-  },
-  centered: {
-    alignItems: 'center',
-    paddingVertical: 32,
-  },
-  emptyText: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 15,
-  },
-  resultsList: {
-    maxHeight: 350,
-  },
-  resultItem: {
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
-  },
-  resultName: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  resultAddress: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 13,
-    marginTop: 3,
-  },
-  submittingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(28,28,30,0.9)',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 12,
-  },
-  submittingText: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 15,
-  },
-})

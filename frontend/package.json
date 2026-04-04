@@ -22,6 +22,7 @@
     "expo-font": "~55.0.6",
     "expo-haptics": "~55.0.11",
     "expo-image": "~55.0.8",
+    "expo-image-picker": "~55.0.16",
     "expo-linking": "~55.0.11",
     "expo-router": "~55.0.10",
     "expo-splash-screen": "~55.0.15",

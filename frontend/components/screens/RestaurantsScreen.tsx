@@ -3,7 +3,6 @@ import {
   View,
   Text,
   FlatList,
-  StyleSheet,
   ActivityIndicator,
   Pressable,
   Alert,
@@ -13,9 +12,12 @@ import { Stack } from 'expo-router'
 import { PlusIcon, CheckCircleIcon, HeartIcon, TrashIcon } from 'phosphor-react-native'
 import apiClient, { ApiError } from '@/services/apiClient'
 import { useAuth } from '@/services/AuthContext'
-import RestaurantCard from '@/components/RestaurantCard'
-import AddRestaurantModal from '@/components/AddRestaurantModal'
-import AddVisitedModal from '@/components/AddVisitedModal'
+import RestaurantCard from '@/components/cards/RestaurantCard'
+import AddRestaurantModal from '@/components/modals/AddRestaurantModal'
+import AddVisitedModal from '@/components/modals/AddVisitedModal'
+import { useTranslation } from '@/services/LanguageContext'
+import { useThemeColors } from '@/hooks/useThemeColors'
+import { createStyles } from './RestaurantsScreen.styles'
 
 interface Restaurant {
   restaurant_id: string
@@ -36,25 +38,26 @@ interface ListEntry {
 
 type Tab = 'visited' | 'wishlist'
 
-const TAB_CONFIG: { key: Tab; label: string; Icon: typeof CheckCircleIcon }[] = [
-  { key: 'visited', label: 'Visited', Icon: CheckCircleIcon },
-  { key: 'wishlist', label: 'Wishlist', Icon: HeartIcon },
-]
-
-function confirmDelete(message: string): Promise<boolean> {
+function confirmDeletePlatform(
+  message: string,
+  labels: { confirm: string; cancel: string; remove: string },
+): Promise<boolean> {
   if (Platform.OS === 'web') {
     return Promise.resolve(window.confirm(message))
   }
   return new Promise((resolve) => {
-    Alert.alert('Confirm', message, [
-      { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-      { text: 'Remove', style: 'destructive', onPress: () => resolve(true) },
+    Alert.alert(labels.confirm, message, [
+      { text: labels.cancel, style: 'cancel', onPress: () => resolve(false) },
+      { text: labels.remove, style: 'destructive', onPress: () => resolve(true) },
     ])
   })
 }
 
 export default function RestaurantsScreen() {
   const { user } = useAuth()
+  const { t } = useTranslation()
+  const colors = useThemeColors()
+  const styles = useMemo(() => createStyles(colors), [colors])
   const [restaurants, setRestaurants] = useState<Restaurant[]>([])
   const [visitedEntries, setVisitedEntries] = useState<ListEntry[]>([])
   const [wishlistEntries, setWishlistEntries] = useState<ListEntry[]>([])
@@ -153,8 +156,11 @@ export default function RestaurantsScreen() {
     const entry = entries.find((e) => e.restaurant_id === restaurantId)
     if (!entry) return
 
-    const label = activeTab === 'visited' ? 'visited list' : 'wishlist'
-    const confirmed = await confirmDelete(`Remove from ${label}?`)
+    const label = activeTab === 'visited' ? t.visitedList : t.wishlist
+    const confirmed = await confirmDeletePlatform(
+      t.confirmRemoveFrom(label),
+      { confirm: t.confirm, cancel: t.cancel, remove: t.remove },
+    )
     if (!confirmed) return
 
     const path =
@@ -174,19 +180,24 @@ export default function RestaurantsScreen() {
     if (activeTab === 'visited') setAddVisitedVisible(true)
   }
 
+  const tabConfig: { key: Tab; label: string; Icon: typeof CheckCircleIcon }[] = [
+    { key: 'visited', label: t.tabVisited, Icon: CheckCircleIcon },
+    { key: 'wishlist', label: t.tabWishlist, Icon: HeartIcon },
+  ]
+
   const emptyMessage =
     activeTab === 'visited'
-      ? 'No visited restaurants yet.'
-      : 'Your wishlist is empty.'
+      ? t.emptyVisited
+      : t.emptyWishlist
 
   return (
     <View style={styles.container}>
       <Stack.Screen
         options={{
-          title: 'Restaurants',
+          title: t.navRestaurants,
           headerRight: () => (
             <Pressable onPress={openAddModal} hitSlop={8}>
-              <PlusIcon size={24} color="#fff" weight="bold" />
+              <PlusIcon size={24} color={colors.text} weight="bold" />
             </Pressable>
           ),
         }}
@@ -194,7 +205,7 @@ export default function RestaurantsScreen() {
 
       {/* Tab bar */}
       <View style={styles.tabBar}>
-        {TAB_CONFIG.map(({ key, label, Icon }) => {
+        {tabConfig.map(({ key, label, Icon }) => {
           const active = activeTab === key
           return (
             <Pressable
@@ -204,7 +215,7 @@ export default function RestaurantsScreen() {
             >
               <Icon
                 size={18}
-                color={active ? '#fff' : 'rgba(255,255,255,0.4)'}
+                color={active ? colors.text : colors.textFaint}
                 weight={active ? 'fill' : 'regular'}
               />
               <Text style={[styles.tabText, active && styles.tabTextActive]}>
@@ -217,7 +228,7 @@ export default function RestaurantsScreen() {
 
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#fff" />
+          <ActivityIndicator size="large" color={colors.tint} />
         </View>
       ) : error ? (
         <View style={styles.centered}>
@@ -229,7 +240,7 @@ export default function RestaurantsScreen() {
           <Pressable style={styles.emptyAddButton} onPress={openAddModal}>
             <PlusIcon size={18} color="#fff" weight="bold" />
             <Text style={styles.emptyAddButtonText}>
-              {activeTab === 'wishlist' ? 'Add to wishlist' : 'Add visited restaurant'}
+              {activeTab === 'wishlist' ? t.addToWishlist : t.addVisitedRestaurant}
             </Text>
           </Pressable>
         </View>
@@ -247,7 +258,7 @@ export default function RestaurantsScreen() {
                 style={styles.deleteEntryButton}
                 onPress={() => handleDeleteEntry(item.restaurant_id)}
               >
-                <TrashIcon size={18} color="#ff6b6b" />
+                <TrashIcon size={18} color={colors.error} />
               </Pressable>
             </View>
           )}
@@ -280,82 +291,3 @@ export default function RestaurantsScreen() {
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-  },
-  tab: {
-    flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 12,
-  },
-  tabActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#fff',
-  },
-  tabText: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 15,
-    fontWeight: '500',
-  },
-  tabTextActive: {
-    color: '#fff',
-    fontWeight: '600',
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  list: {
-    padding: 16,
-    gap: 12,
-  },
-  cardRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  cardWrapper: {
-    flex: 1,
-  },
-  deleteEntryButton: {
-    padding: 10,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,107,107,0.1)',
-  },
-  emptyText: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 16,
-    marginBottom: 16,
-  },
-  emptyAddButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(0.8,0.3,0.6,0.75)',
-    borderRadius: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  emptyAddButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  errorText: {
-    color: '#ff6b6b',
-    fontSize: 16,
-    textAlign: 'center',
-  },
-})

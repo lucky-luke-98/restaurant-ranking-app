@@ -1,9 +1,8 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   View,
   Text,
   TextInput,
-  StyleSheet,
   Modal,
   Pressable,
   KeyboardAvoidingView,
@@ -11,6 +10,9 @@ import {
   FlatList,
   ActivityIndicator,
 } from 'react-native'
+import { useTranslation } from '@/services/LanguageContext'
+import { useThemeColors } from '@/hooks/useThemeColors'
+import { createStyles } from './AddRestaurantModal.styles'
 import { MagnifyingGlassIcon } from 'phosphor-react-native'
 
 interface PlaceResult {
@@ -32,6 +34,9 @@ export default function AddRestaurantModal({
   onCreated,
   onSubmit,
 }: AddRestaurantModalProps) {
+  const { t } = useTranslation()
+  const colors = useThemeColors()
+  const styles = useMemo(() => createStyles(colors), [colors])
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<PlaceResult[]>([])
   const [searching, setSearching] = useState(false)
@@ -65,7 +70,7 @@ export default function AddRestaurantModal({
       await onSubmit(place.google_place_id)
       onCreated()
     } catch (err: any) {
-      setError(err.message ?? 'Failed to create restaurant')
+      setError(err.message ?? t.failedCreateRestaurant)
     } finally {
       setSubmitting(false)
     }
@@ -87,7 +92,7 @@ export default function AddRestaurantModal({
       >
         <View style={styles.sheet}>
           <View style={styles.header}>
-            <Text style={styles.title}>Add Restaurant</Text>
+            <Text style={styles.title}>{t.addRestaurantTitle}</Text>
             <Pressable onPress={handleClose} hitSlop={12}>
               <Text style={styles.closeButton}>✕</Text>
             </Pressable>
@@ -99,8 +104,8 @@ export default function AddRestaurantModal({
               value={query}
               onChangeText={setQuery}
               onSubmitEditing={handleSearch}
-              placeholder="Search for a restaurant..."
-              placeholderTextColor="rgba(255,255,255,0.3)"
+              placeholder={t.searchPlaceholder}
+              placeholderTextColor={colors.textPlaceholder}
               returnKeyType="search"
               autoFocus
             />
@@ -109,7 +114,7 @@ export default function AddRestaurantModal({
               onPress={handleSearch}
               disabled={query.trim().length < 2 || searching}
             >
-              <MagnifyingGlassIcon size={20} color="#fff" weight="bold" />
+              <MagnifyingGlassIcon size={20} color={colors.text} weight="bold" />
             </Pressable>
           </View>
 
@@ -117,7 +122,7 @@ export default function AddRestaurantModal({
 
           {searching ? (
             <View style={styles.centered}>
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.tint} />
             </View>
           ) : results.length > 0 ? (
             <FlatList
@@ -138,20 +143,20 @@ export default function AddRestaurantModal({
             />
           ) : hasSearched && results.length === 0 ? (
             <View style={styles.centered}>
-              <Text style={styles.emptyText}>No results found</Text>
+              <Text style={styles.emptyText}>{t.noResults}</Text>
             </View>
           ) : (
             <View style={styles.centered}>
               <Text style={styles.emptyText}>
-                Type a restaurant name to search
+                {t.searchInstruction}
               </Text>
             </View>
           )}
 
           {submitting && (
             <View style={styles.submittingOverlay}>
-              <ActivityIndicator size="large" color="#fff" />
-              <Text style={styles.submittingText}>Adding restaurant...</Text>
+              <ActivityIndicator size="large" color={colors.tint} />
+              <Text style={styles.submittingText}>{t.addingRestaurant}</Text>
             </View>
           )}
         </View>
@@ -159,106 +164,3 @@ export default function AddRestaurantModal({
     </Modal>
   )
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  sheet: {
-    backgroundColor: '#1c1c1e',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    maxHeight: '80%',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  title: {
-    color: 'white',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  closeButton: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 20,
-  },
-  searchRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 12,
-  },
-  searchInput: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 10,
-    padding: 14,
-    color: 'white',
-    fontSize: 16,
-  },
-  searchButton: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 10,
-    width: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  searchButtonDisabled: {
-    opacity: 0.3,
-  },
-  error: {
-    color: '#ff6b6b',
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
-  centered: {
-    alignItems: 'center',
-    paddingVertical: 32,
-  },
-  emptyText: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 15,
-  },
-  resultsList: {
-    maxHeight: 350,
-  },
-  resultItem: {
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
-  },
-  resultName: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  resultAddress: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 13,
-    marginTop: 3,
-  },
-  submittingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(28,28,30,0.9)',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 12,
-  },
-  submittingText: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 15,
-  },
-})

@@ -1,10 +1,9 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   View,
   Text,
   TextInput,
   Pressable,
-  StyleSheet,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
@@ -12,10 +11,16 @@ import {
 } from 'react-native'
 import { ForkKnifeIcon, EnvelopeIcon, LockIcon, UserIcon, SignInIcon, UserPlusIcon } from 'phosphor-react-native'
 import { useAuth } from '@/services/AuthContext'
+import { useTranslation } from '@/services/LanguageContext'
 import { ApiError } from '@/services/apiClient'
+import { useThemeColors } from '@/hooks/useThemeColors'
+import { createStyles } from './AuthScreen.styles'
 
 export default function AuthScreen() {
   const { login, register } = useAuth()
+  const { t } = useTranslation()
+  const colors = useThemeColors()
+  const styles = useMemo(() => createStyles(colors), [colors])
   const [isRegister, setIsRegister] = useState(false)
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -37,10 +42,10 @@ export default function AuthScreen() {
       const message =
         err instanceof ApiError
           ? err.status === 401
-            ? 'Invalid email or password.'
+            ? t.authInvalidCredentials
             : err.status === 409
-              ? 'Email already in use.'
-              : `Error: ${err.body}`
+              ? t.authEmailInUse
+              : `${t.error}: ${err.body}`
           : (err as Error).message
       setError(message)
     } finally {
@@ -58,29 +63,29 @@ export default function AuthScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <ForkKnifeIcon size={64} color="#fff" weight="duotone" style={styles.logo} />
-        <Text style={styles.title}>ResRank</Text>
-        <Text style={styles.subtitle}>{isRegister ? 'Create Account' : 'Sign In'}</Text>
+        <ForkKnifeIcon size={64} color={colors.text} weight="duotone" style={styles.logo} />
+        <Text style={styles.title}>{t.appName}</Text>
+        <Text style={styles.subtitle}>{isRegister ? t.authCreateAccount : t.authSignIn}</Text>
 
         {isRegister && (
           <>
             <View style={styles.inputRow}>
-              <UserIcon size={20} color="rgba(255,255,255,0.4)" style={styles.inputIcon} />
+              <UserIcon size={20} color={colors.textFaint} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="First Name"
-                placeholderTextColor="rgba(255,255,255,0.4)"
+                placeholder={t.authFirstName}
+                placeholderTextColor={colors.textPlaceholder}
                 value={firstName}
                 onChangeText={setFirstName}
                 autoCapitalize="words"
               />
             </View>
             <View style={styles.inputRow}>
-              <UserIcon size={20} color="rgba(255,255,255,0.4)" style={styles.inputIcon} />
+              <UserIcon size={20} color={colors.textFaint} style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
-                placeholder="Last Name"
-                placeholderTextColor="rgba(255,255,255,0.4)"
+                placeholder={t.authLastName}
+                placeholderTextColor={colors.textPlaceholder}
                 value={lastName}
                 onChangeText={setLastName}
                 autoCapitalize="words"
@@ -90,11 +95,11 @@ export default function AuthScreen() {
         )}
 
         <View style={styles.inputRow}>
-          <EnvelopeIcon size={20} color="rgba(255,255,255,0.4)" style={styles.inputIcon} />
+          <EnvelopeIcon size={20} color={colors.textFaint} style={styles.inputIcon} />
           <TextInput
             style={styles.input}
-            placeholder="Email"
-            placeholderTextColor="rgba(255,255,255,0.4)"
+            placeholder={t.authEmail}
+            placeholderTextColor={colors.textPlaceholder}
             value={mail}
             onChangeText={setMail}
             autoCapitalize="none"
@@ -102,11 +107,11 @@ export default function AuthScreen() {
           />
         </View>
         <View style={styles.inputRow}>
-          <LockIcon size={20} color="rgba(255,255,255,0.4)" style={styles.inputIcon} />
+          <LockIcon size={20} color={colors.textFaint} style={styles.inputIcon} />
           <TextInput
             style={styles.input}
-            placeholder="Password"
-            placeholderTextColor="rgba(255,255,255,0.4)"
+            placeholder={t.authPassword}
+            placeholderTextColor={colors.textPlaceholder}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -129,94 +134,17 @@ export default function AuthScreen() {
               ) : (
                 <SignInIcon size={20} color="#fff" weight="bold" />
               )}
-              <Text style={styles.buttonText}>{isRegister ? 'Register' : 'Login'}</Text>
+              <Text style={styles.buttonText}>{isRegister ? t.authRegister : t.authLogin}</Text>
             </View>
           )}
         </Pressable>
 
         <Pressable onPress={() => { setIsRegister(!isRegister); setError(null) }}>
           <Text style={styles.switchText}>
-            {isRegister ? 'Already have an account? Sign in' : "Don't have an account? Register"}
+            {isRegister ? t.authAlreadyHaveAccount : t.authNoAccount}
           </Text>
         </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scroll: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 24,
-  },
-  logo: {
-    alignSelf: 'center',
-    marginBottom: 12,
-  },
-  title: {
-    color: 'white',
-    fontSize: 42,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  subtitle: {
-    color: 'rgba(255,255,255,0.6)',
-    fontSize: 18,
-    textAlign: 'center',
-    marginBottom: 32,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 12,
-    marginBottom: 12,
-    paddingHorizontal: 14,
-  },
-  inputIcon: {
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: 14,
-    color: 'white',
-    fontSize: 16,
-  },
-  button: {
-    backgroundColor: 'rgba(0.8,0.3,0.6,0.75)',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 16,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  switchText: {
-    color: 'rgba(255,255,255,0.5)',
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  error: {
-    color: '#ff6b6b',
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-})

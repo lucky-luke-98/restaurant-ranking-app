@@ -1,3 +1,5 @@
+from asyncio import to_thread
+
 from fastapi import APIRouter, HTTPException, Depends
 
 from src.users.models import (
@@ -21,10 +23,10 @@ router = APIRouter()
 
 
 @router.post("/register")
-def register(request: RegisterRequest) -> AuthResponse:
+async def register(request: RegisterRequest) -> AuthResponse:
     """Register a new user and return a JWT token."""
     try:
-        user = register_user(request=request)
+        user = await to_thread(register_user, request=request)
     except ValueError as exp:
         raise HTTPException(status_code=409, detail=str(exp))
     except Exception as exp:
@@ -46,10 +48,10 @@ def register(request: RegisterRequest) -> AuthResponse:
 
 
 @router.post("/login")
-def login(request: LoginRequest) -> AuthResponse:
+async def login(request: LoginRequest) -> AuthResponse:
     """Authenticate and return a JWT token."""
     try:
-        user = authenticate_user(request=request)
+        user = await to_thread(authenticate_user, request=request)
     except ValueError as exp:
         raise HTTPException(status_code=401, detail=str(exp))
     except Exception as exp:
@@ -71,25 +73,31 @@ def login(request: LoginRequest) -> AuthResponse:
 
 
 @router.get("/me")
-def get_me(current_user: dict = Depends(get_current_user)) -> dict:
+async def get_me(current_user: dict = Depends(get_current_user)) -> dict:
     """Return the currently authenticated user from the JWT."""
     from src.db.mongo_client import get_mongo_collection
     from src.config import settings
 
-    collection = get_mongo_collection(settings.mongo_users_collection)
-    doc: dict = collection.find_one({"user_id": current_user["user_id"]})
+    def _fetch():
+        collection = get_mongo_collection(settings.mongo_users_collection)
+        doc: dict = collection.find_one({"user_id": current_user["user_id"]})
+        if not doc:
+            return None
+        doc.pop("_id", None)
+        doc.pop("password_hash", None)
+        return doc
+
+    doc = await to_thread(_fetch)
     if not doc:
         raise HTTPException(status_code=404, detail="User not found.")
-    doc.pop("_id", None)
-    doc.pop("password_hash", None)
     return doc
 
 
 @router.get("/")
-def get_all_users(current_user: dict = Depends(require_admin)) -> GetAllUsersResponse:
+async def get_all_users(current_user: dict = Depends(require_admin)) -> GetAllUsersResponse:
     """Endpoint to get all users. Requires admin role."""
     try:
-        all_users = get_all_users_from_db()
+        all_users = await to_thread(get_all_users_from_db)
         return GetAllUsersResponse(
             all_users=all_users
         )
@@ -98,10 +106,10 @@ def get_all_users(current_user: dict = Depends(require_admin)) -> GetAllUsersRes
 
 
 @router.post("/")
-def create_user(user_data: CreateUserRequest) -> CreateUserResponse:
+async def create_user(user_data: CreateUserRequest) -> CreateUserResponse:
     """Endpoint to set a new user in the database."""
     try:
-        success = create_one_user(request=user_data)
+        success = await to_thread(create_one_user, request=user_data)
         return CreateUserResponse(
             success=success
         )

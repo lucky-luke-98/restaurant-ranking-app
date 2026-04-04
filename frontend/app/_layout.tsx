@@ -6,11 +6,13 @@ import { ActivityIndicator, View } from 'react-native';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { AuthProvider, useAuth } from '@/services/AuthContext';
+import { LanguageProvider, useTranslation } from '@/services/LanguageContext';
+import { AppThemeProvider, useAppTheme } from '@/services/ThemeContext';
 
 function AuthGate() {
   const { user, loading } = useAuth();
+  const { t } = useTranslation();
   const segments = useSegments();
   const router = useRouter();
 
@@ -29,25 +31,38 @@ function AuthGate() {
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#fff" />
+        <ActivityIndicator size="large" />
       </View>
     );
   }
 
   return (
     <Stack>
-      <Stack.Screen name="auth" options={{ title: "Welcome", headerShown: false }} />
-      <Stack.Screen name="index" options={{ title: "Home", headerShown: false }} />
-      <Stack.Screen name="restaurants" options={{ title: "Restaurants" }} />
-      <Stack.Screen name="map" options={{ title: "Map" }} />
-      <Stack.Screen name="restaurant/[id]" options={{ title: "Restaurant" }} />
+      <Stack.Screen name="auth" options={{ title: t.navWelcome, headerShown: false }} />
+      <Stack.Screen name="index" options={{ title: t.navHome, headerShown: false }} />
+      <Stack.Screen name="restaurants" options={{ title: t.navRestaurants }} />
+      <Stack.Screen name="map" options={{ title: t.navMap }} />
+      <Stack.Screen name="restaurant/[id]" options={{ title: t.navRestaurant }} />
+      <Stack.Screen name="settings" options={{ title: t.navSettings }} />
       <Stack.Screen name="+not-found" />
     </Stack>
   );
 }
 
+function ThemedApp() {
+  const { mode } = useAppTheme();
+
+  return (
+    <ThemeProvider value={mode === 'dark' ? DarkTheme : DefaultTheme}>
+      <AuthProvider>
+        <AuthGate />
+      </AuthProvider>
+      <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
+    </ThemeProvider>
+  );
+}
+
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
@@ -57,11 +72,10 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AuthProvider>
-        <AuthGate />
-      </AuthProvider>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <AppThemeProvider>
+      <LanguageProvider>
+        <ThemedApp />
+      </LanguageProvider>
+    </AppThemeProvider>
   );
 }

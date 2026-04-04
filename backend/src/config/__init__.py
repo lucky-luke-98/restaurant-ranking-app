@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     mongo_wishlist_collection: str = Field("wishlist", description="The name of the collection that stores all wishlist entries.")
     mongo_visited_collection: str = Field("visited", description="The name of the collection that stores all visited entries.")
     mongo_food_reviews_collection: str = Field("food_reviews", description="The name of the collection that stores all food reviews.")
+    mongo_images_collection: str = Field("images", description="The name of the collection that stores all food review images.")
 
     # cors
     allowed_origins: str = Field(

@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native'
+import { View, Text, ActivityIndicator } from 'react-native'
 import { useRouter } from 'expo-router'
 import apiClient from '@/services/apiClient'
 import { useAuth } from '@/services/AuthContext'
+import { useTranslation } from '@/services/LanguageContext'
+import { useThemeColors } from '@/hooks/useThemeColors'
+import { createStyles } from './MapScreen.styles'
 
 interface Restaurant {
   restaurant_id: string
@@ -16,21 +19,25 @@ function LeafletMap({
   visitedRestaurants,
   wishlistRestaurants,
   onMarkerPress,
+  visitedLabel,
+  wishlistLabel,
 }: {
   visitedRestaurants: Restaurant[]
   wishlistRestaurants: Restaurant[]
   onMarkerPress: (id: string) => void
+  visitedLabel: string
+  wishlistLabel: string
 }) {
+  const colors = useThemeColors()
+  const styles = useMemo(() => createStyles(colors), [colors])
   const [leafletReady, setLeafletReady] = useState(false)
   const [modules, setModules] = useState<any>(null)
 
   useEffect(() => {
-    // Dynamic import to avoid SSR issues with window
     Promise.all([
       import('react-leaflet'),
       import('leaflet'),
     ]).then(([rl, L]) => {
-      // Inject leaflet CSS via a link tag
       if (!document.querySelector('link[href*="leaflet"]')) {
         const link = document.createElement('link')
         link.rel = 'stylesheet'
@@ -46,7 +53,7 @@ function LeafletMap({
   if (!leafletReady || !modules) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#fff" />
+        <ActivityIndicator size="large" color={colors.tint} />
       </View>
     )
   }
@@ -54,7 +61,6 @@ function LeafletMap({
   const { MapContainer, TileLayer, Marker, Popup } = modules.rl
   const L = modules.L
 
-  // Phosphor ForkKnife bold SVG path (from phosphor-react-native)
   const forkKnifeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 256 256" fill="white"><path d="M68 88V40a12 12 0 0 1 24 0v48a12 12 0 0 1-24 0m152-48v184a12 12 0 0 1-24 0v-44h-44a12 12 0 0 1-12-12 273.2 273.2 0 0 1 7.33-57.82c10.09-41.76 29.43-69.85 55.94-81.18A12 12 0 0 1 220 40m-24 22.92C182.6 77 175 98 170.77 115.38a254.4 254.4 0 0 0-6.22 40.62H196ZM128 39a12 12 0 0 0-24 2l4 47.46a28 28 0 0 1-56 0L56 41a12 12 0 1 0-24-2l-4 48v1a52.1 52.1 0 0 0 40 50.59V224a12 12 0 0 0 24 0v-85.41A52.1 52.1 0 0 0 132 88v-1Z"/></svg>`
 
   const makeIcon = (color: string) =>
@@ -76,12 +82,11 @@ function LeafletMap({
       popupAnchor: [0, -20],
     })
 
-  const greenIcon = makeIcon('#4CAF50')
-  const orangeIcon = makeIcon('#FF9800')
+  const greenIcon = makeIcon(colors.success)
+  const orangeIcon = makeIcon(colors.warning)
 
   const allMarkers = [...visitedRestaurants, ...wishlistRestaurants]
 
-  // Calculate bounds or use fallback
   let center: [number, number] = [50.9375, 6.9603]
   let zoom = 12
   let bounds: any = null
@@ -120,8 +125,8 @@ function LeafletMap({
               <br />
               <span style={{ color: '#666', fontSize: 12 }}>{r.cuisine_type}</span>
               <br />
-              <span style={{ color: '#4CAF50', fontSize: 11, fontStyle: 'italic' }}>
-                Visited
+              <span style={{ color: colors.success, fontSize: 11, fontStyle: 'italic' }} className="map-visited">
+                {visitedLabel}
               </span>
             </div>
           </Popup>
@@ -143,8 +148,8 @@ function LeafletMap({
               <br />
               <span style={{ color: '#666', fontSize: 12 }}>{r.cuisine_type}</span>
               <br />
-              <span style={{ color: '#FF9800', fontSize: 11, fontStyle: 'italic' }}>
-                Wishlist
+              <span style={{ color: colors.warning, fontSize: 11, fontStyle: 'italic' }} className="map-wishlist">
+                {wishlistLabel}
               </span>
             </div>
           </Popup>
@@ -156,7 +161,10 @@ function LeafletMap({
 
 export default function MapScreen() {
   const { user } = useAuth()
+  const { t } = useTranslation()
   const router = useRouter()
+  const colors = useThemeColors()
+  const styles = useMemo(() => createStyles(colors), [colors])
 
   const [restaurants, setRestaurants] = useState<Restaurant[]>([])
   const [visitedIds, setVisitedIds] = useState<Set<string>>(new Set())
@@ -214,7 +222,7 @@ export default function MapScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#fff" />
+        <ActivityIndicator size="large" color={colors.tint} />
       </View>
     )
   }
@@ -225,55 +233,20 @@ export default function MapScreen() {
         visitedRestaurants={visitedRestaurants}
         wishlistRestaurants={wishlistRestaurants}
         onMarkerPress={handleMarkerPress}
+        visitedLabel={t.mapVisited}
+        wishlistLabel={t.mapWishlist}
       />
 
       <View style={styles.legend}>
         <View style={styles.legendItem}>
-          <View style={[styles.dot, { backgroundColor: '#4CAF50' }]} />
-          <Text style={styles.legendText}>Visited</Text>
+          <View style={[styles.dot, { backgroundColor: colors.success }]} />
+          <Text style={styles.legendText}>{t.mapVisited}</Text>
         </View>
         <View style={styles.legendItem}>
-          <View style={[styles.dot, { backgroundColor: '#FF9800' }]} />
-          <Text style={styles.legendText}>Wishlist</Text>
+          <View style={[styles.dot, { backgroundColor: colors.warning }]} />
+          <Text style={styles.legendText}>{t.mapWishlist}</Text>
         </View>
       </View>
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  legend: {
-    position: 'absolute',
-    bottom: 24,
-    alignSelf: 'center',
-    flexDirection: 'row',
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 16,
-    zIndex: 1000,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  legendText: {
-    color: '#fff',
-    fontSize: 12,
-  },
-})
