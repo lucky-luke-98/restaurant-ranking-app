@@ -42,6 +42,7 @@ export interface ReviewInitialValues {
   comment?: string
   visited_at?: string
   food_items?: FoodItemEntry[]
+  coauthors?: { user_id: string; first_name: string; avatar?: string }[]
 }
 
 interface AddReviewModalProps {
@@ -124,6 +125,16 @@ export default function AddReviewModal({
               price: String(fi.price),
               rating: fi.rating,
               comment: fi.comment,
+            }))
+          )
+        }
+        if (initialValues.coauthors && initialValues.coauthors.length > 0) {
+          setSelectedCoauthors(
+            initialValues.coauthors.map((c) => ({
+              user_id: c.user_id,
+              first_name: c.first_name,
+              last_name: '',
+              avatar: c.avatar,
             }))
           )
         }

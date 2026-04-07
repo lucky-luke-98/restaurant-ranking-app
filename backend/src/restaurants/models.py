@@ -118,6 +118,7 @@ class UpdateRestaurantReviewRequest(BaseModel):
     experience_rating: float | None = Field(None, ge=0.0, le=10.0, description="Updated experience rating.")
     comment: str | None = Field(None, description="Updated comment.")
     visited_at: date | None = Field(None, description="Updated visit date.")
+    coauthor_ids: list[str] | None = Field(None, description="Updated list of coauthor user IDs.")
 
 class UpdateFoodReviewRequest(BaseModel):
     food_review_id: str = Field(..., description="ID of the food review to update.")

@@ -224,6 +224,7 @@ export default function RestaurantDetailScreen() {
         rating: fr.rating,
         comment: fr.comment ?? '',
       })),
+      coauthors: review.coauthors,
     })
     setReviewModalVisible(true)
   }
@@ -233,6 +234,7 @@ export default function RestaurantDetailScreen() {
     experience_rating: number
     comment: string
     visited_at?: string
+    coauthor_ids?: string[]
     images: string[]
     food_items: FoodItemEntry[]
   }) => {
@@ -243,6 +245,7 @@ export default function RestaurantDetailScreen() {
       experience_rating: data.experience_rating,
       comment: data.comment,
       ...(data.visited_at ? { visited_at: data.visited_at } : {}),
+      coauthor_ids: data.coauthor_ids ?? [],
     })
 
     const existingFoodIds = new Set(

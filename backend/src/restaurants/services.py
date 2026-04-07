@@ -332,6 +332,30 @@ def update_restaurant_review(request: UpdateRestaurantReviewRequest) -> bool:
         value = getattr(request, field)
         if value is not None:
             updates[field] = value.isoformat() if hasattr(value, "isoformat") else value
+
+    # Handle coauthor_ids update
+    if request.coauthor_ids is not None:
+        # Validate all coauthor IDs exist
+        for coauthor_id in request.coauthor_ids:
+            if not verify_user_entry(coauthor_id):
+                raise ValueError(f"Coauthor user '{coauthor_id}' not found.")
+        updates["coauthor_ids"] = request.coauthor_ids
+
+        # Create visited entries for new coauthors
+        review = collection.find_one({"review_id": request.review_id})
+        if review:
+            visited_col = get_mongo_collection(collection_name=settings.mongo_visited_collection)
+            wishlist_col = get_mongo_collection(collection_name=settings.mongo_wishlist_collection)
+            for coauthor_id in request.coauthor_ids:
+                existing = visited_col.find_one({
+                    "user_id": coauthor_id,
+                    "restaurant_id": review["restaurant_id"],
+                })
+                if not existing:
+                    entry = VisitedEntry(user_id=coauthor_id, restaurant_id=review["restaurant_id"])
+                    visited_col.insert_one(entry.model_dump())
+                wishlist_col.delete_one({"user_id": coauthor_id, "restaurant_id": review["restaurant_id"]})
+
     if not updates:
         return False
     updates["updated_at"] = datetime.now(timezone.utc).isoformat()
