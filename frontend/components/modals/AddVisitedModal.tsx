@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   View,
   Text,
@@ -61,6 +61,17 @@ export default function AddVisitedModal({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedPlace, setSelectedPlace] = useState<PlaceResult | null>(null)
+
+  useEffect(() => {
+    if (!visible) {
+      setMode('choose')
+      setQuery('')
+      setResults([])
+      setHasSearched(false)
+      setSelectedPlace(null)
+      setError(null)
+    }
+  }, [visible])
 
   const handleSearch = async () => {
     if (query.trim().length < 2) return

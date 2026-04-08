@@ -15,7 +15,7 @@ import { PlusIcon, CheckCircleIcon, HeartIcon, ForkKnifeIcon, MagnifyingGlassIco
 import apiClient, { ApiError } from '@/services/apiClient'
 import { useAuth } from '@/services/AuthContext'
 import RestaurantCard from '@/components/cards/RestaurantCard'
-import AddRestaurantModal from '@/components/modals/AddRestaurantModal'
+import AddWishlistModal from '@/components/modals/AddWishlistModal'
 import AddVisitedModal from '@/components/modals/AddVisitedModal'
 import ConfirmModal from '@/components/modals/ConfirmModal'
 import DateInput from '@/components/inputs/DateInput'
@@ -324,7 +324,7 @@ export default function RestaurantsScreen() {
       )}
 
       {/* Wishlist tab: Google search modal */}
-      <AddRestaurantModal
+      <AddWishlistModal
         visible={addWishlistVisible}
         onClose={() => setAddWishlistVisible(false)}
         onCreated={() => {

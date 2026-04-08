@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
 } from 'react-native'
 import { useTranslation } from '@/services/LanguageContext'
 import { useThemeColors } from '@/hooks/useThemeColors'
-import { createStyles } from './AddRestaurantModal.styles'
+import { createStyles } from './AddWishlistModal.styles'
 import { MagnifyingGlassIcon, CaretLeftIcon } from 'phosphor-react-native'
 import { CUISINE_TYPES, CUISINE_ICONS, CUISINE_LABEL_KEYS, type CuisineType } from '@/constants/CuisineTypes'
 
@@ -23,19 +23,19 @@ interface PlaceResult {
   address: string
 }
 
-interface AddRestaurantModalProps {
+interface AddWishlistModalProps {
   visible: boolean
   onClose: () => void
   onCreated: () => void
   onSubmit: (googlePlaceId: string, cuisineType: CuisineType) => Promise<void>
 }
 
-export default function AddRestaurantModal({
+export default function AddWishlistModal({
   visible,
   onClose,
   onCreated,
   onSubmit,
-}: AddRestaurantModalProps) {
+}: AddWishlistModalProps) {
   const { t } = useTranslation()
   const colors = useThemeColors()
   const styles = useMemo(() => createStyles(colors), [colors])
@@ -46,6 +46,16 @@ export default function AddRestaurantModal({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedPlace, setSelectedPlace] = useState<PlaceResult | null>(null)
+
+  useEffect(() => {
+    if (!visible) {
+      setQuery('')
+      setResults([])
+      setHasSearched(false)
+      setSelectedPlace(null)
+      setError(null)
+    }
+  }, [visible])
 
   const handleSearch = async () => {
     if (query.trim().length < 2) return
