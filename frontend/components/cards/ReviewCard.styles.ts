@@ -21,76 +21,43 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
   authorRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    flexWrap: 'wrap',
+    gap: 8,
     flex: 1,
   },
-  authorAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+  avatarStack: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  authorAvatarFallback: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+  stackAvatar: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
+    borderColor: colors.backgroundCard,
+  },
+  stackAvatarFallback: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
+    borderColor: colors.backgroundCard,
     backgroundColor: colors.backgroundButtonStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  authorAvatarText: {
+  stackAvatarOverlap: {
+    marginLeft: -8,
+  },
+  stackAvatarText: {
     color: colors.textFaint,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
   },
-  author: {
+  authorNames: {
     color: colors.textSecondary,
     fontSize: 13,
     fontWeight: '600',
-  },
-  coauthorSeparator: {
-    color: colors.textFaint,
-    fontSize: 12,
-  },
-  coauthorStack: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 2,
-  },
-  coauthorStackAvatar: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: colors.backgroundCard,
-    marginLeft: -6,
-  },
-  coauthorStackAvatarFirst: {
-    marginLeft: 0,
-  },
-  coauthorStackFallback: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: colors.backgroundCard,
-    backgroundColor: colors.backgroundButtonStrong,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: -6,
-  },
-  coauthorStackFallbackFirst: {
-    marginLeft: 0,
-  },
-  coauthorStackText: {
-    color: colors.textFaint,
-    fontSize: 9,
-    fontWeight: '700',
-  },
-  coauthorNames: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    marginLeft: 4,
+    flexShrink: 1,
   },
   dateRow: {
     flexDirection: 'row',

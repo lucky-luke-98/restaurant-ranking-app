@@ -64,7 +64,14 @@ export default function ReviewCard({ review, foodReviews, isOwn, isCoauthor, ima
   const styles = useMemo(() => createStyles(colors), [colors])
   const [foodExpanded, setFoodExpanded] = useState(false)
 
-  const hasCoauthors = review.coauthors && review.coauthors.length > 0
+  const allAuthors = useMemo(() => {
+    const owner = {
+      user_id: review.user_id,
+      first_name: isOwn ? t.you : review.first_name || t.anonymous,
+      avatar: review.avatar,
+    }
+    return [owner, ...(review.coauthors ?? [])]
+  }, [review, isOwn, t])
 
   const renderRatingBar = (label: string, value: number) => (
     <View style={styles.ratingRow}>
@@ -85,49 +92,29 @@ export default function ReviewCard({ review, foodReviews, isOwn, isCoauthor, ima
     <View style={[styles.card, isOwn && styles.ownCard]}>
       <View style={styles.meta}>
         <View style={styles.authorRow}>
-          {review.avatar ? (
-            <Image
-              source={{ uri: `data:image/jpeg;base64,${review.avatar}` }}
-              style={styles.authorAvatar}
-            />
-          ) : (
-            <View style={styles.authorAvatarFallback}>
-              <Text style={styles.authorAvatarText}>
-                {(isOwn ? t.you : review.first_name || t.anonymous).charAt(0).toUpperCase()}
-              </Text>
-            </View>
-          )}
-          <Text style={styles.author}>
-            {isOwn ? t.you : review.first_name || t.anonymous}
+          <View style={styles.avatarStack}>
+            {allAuthors.map((a, i) =>
+              a.avatar ? (
+                <Image
+                  key={a.user_id}
+                  source={{ uri: `data:image/jpeg;base64,${a.avatar}` }}
+                  style={[styles.stackAvatar, i > 0 && styles.stackAvatarOverlap]}
+                />
+              ) : (
+                <View
+                  key={a.user_id}
+                  style={[styles.stackAvatarFallback, i > 0 && styles.stackAvatarOverlap]}
+                >
+                  <Text style={styles.stackAvatarText}>
+                    {a.first_name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )
+            )}
+          </View>
+          <Text style={styles.authorNames} numberOfLines={1}>
+            {allAuthors.map((a) => a.first_name).join(' & ')}
           </Text>
-          {hasCoauthors && (
-            <>
-              <Text style={styles.coauthorSeparator}>{t.withCoauthors}</Text>
-              <View style={styles.coauthorStack}>
-                {review.coauthors!.map((ca, i) =>
-                  ca.avatar ? (
-                    <Image
-                      key={ca.user_id}
-                      source={{ uri: `data:image/jpeg;base64,${ca.avatar}` }}
-                      style={[styles.coauthorStackAvatar, i === 0 && styles.coauthorStackAvatarFirst]}
-                    />
-                  ) : (
-                    <View
-                      key={ca.user_id}
-                      style={[styles.coauthorStackFallback, i === 0 && styles.coauthorStackFallbackFirst]}
-                    >
-                      <Text style={styles.coauthorStackText}>
-                        {ca.first_name.charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                  )
-                )}
-              </View>
-              <Text style={styles.coauthorNames}>
-                {review.coauthors!.map((ca) => ca.first_name).join(', ')}
-              </Text>
-            </>
-          )}
         </View>
         <View style={styles.dateRow}>
           {review.visited_at ? (

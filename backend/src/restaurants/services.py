@@ -554,7 +554,11 @@ def get_food_review_stats(restaurant_ids: list[str], user_id: str | None = None)
     if user_id:
         reviews_collection = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
         user_review_pipeline = [
-            {"$match": {"user_id": user_id, "restaurant_id": {"$in": restaurant_ids}, "visited_at": {"$ne": None}}},
+            {"$match": {
+                "$or": [{"user_id": user_id}, {"coauthor_ids": user_id}],
+                "restaurant_id": {"$in": restaurant_ids},
+                "visited_at": {"$ne": None},
+            }},
             {"$group": {"_id": "$restaurant_id", "last_visited": {"$max": "$visited_at"}}},
         ]
         for r in reviews_collection.aggregate(user_review_pipeline):

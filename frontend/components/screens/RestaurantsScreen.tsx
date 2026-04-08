@@ -10,7 +10,7 @@ import {
   TextInput,
   ScrollView,
 } from 'react-native'
-import { Tabs } from 'expo-router'
+import { Tabs, useNavigation } from 'expo-router'
 import { PlusIcon, CheckCircleIcon, HeartIcon, ForkKnifeIcon, MagnifyingGlassIcon } from 'phosphor-react-native'
 import apiClient, { ApiError } from '@/services/apiClient'
 import { useAuth } from '@/services/AuthContext'
@@ -115,12 +115,22 @@ export default function RestaurantsScreen() {
       .finally(() => setLoading(false))
   }, [user])
 
+  const navigation = useNavigation()
+
   useEffect(() => {
     fetchAllData()
   }, [fetchAllData])
 
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchAllData()
+    })
+    return unsubscribe
+  }, [navigation, fetchAllData])
+
   const handleTabChange = (tab: Tab) => {
     setActiveTab(tab)
+    fetchAllData()
   }
 
   const visitedIds = useMemo(
@@ -134,9 +144,8 @@ export default function RestaurantsScreen() {
 
   const hasActiveFilters = !!(filterName || filterCuisine || filterFrom || filterTo)
 
-  const filteredRestaurants = useMemo(
-    () =>
-      restaurants.filter((r) => {
+  const filteredRestaurants = useMemo(() => {
+      const filtered = restaurants.filter((r) => {
         if (activeTab === 'visited') {
           if (!visitedIds.has(r.restaurant_id)) return false
           if (filterFrom || filterTo) {
@@ -153,7 +162,16 @@ export default function RestaurantsScreen() {
         if (filterName && !r.name.toLowerCase().includes(filterName.toLowerCase())) return false
         if (filterCuisine && r.cuisine_type !== filterCuisine) return false
         return true
-      }),
+      })
+      if (activeTab === 'visited') {
+        filtered.sort((a, b) => {
+          const aDate = foodStats[a.restaurant_id]?.last_visited ?? ''
+          const bDate = foodStats[b.restaurant_id]?.last_visited ?? ''
+          return bDate.localeCompare(aDate)
+        })
+      }
+      return filtered
+    },
     [restaurants, visitedIds, wishlistIds, activeTab, filterFrom, filterTo, foodStats, filterName, filterCuisine],
   )
 
