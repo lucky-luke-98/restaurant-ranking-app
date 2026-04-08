@@ -324,6 +324,17 @@ def delete_review(request: DeleteReviewRequest) -> bool:
 
 
 @service
+def leave_review(review_id: str, user_id: str) -> bool:
+    """Removes a coauthor from a review's coauthor_ids list."""
+    collection = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
+    result = collection.update_one(
+        {"review_id": review_id},
+        {"$pull": {"coauthor_ids": user_id}},
+    )
+    return result.modified_count > 0
+
+
+@service
 def update_restaurant_review(request: UpdateRestaurantReviewRequest) -> bool:
     """Updates a restaurant review with the provided fields."""
     collection = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
@@ -388,9 +399,15 @@ def create_food_review(request: CreateFoodReviewRequest, user_id: str) -> str | 
     if not verify_user_entry(user_id):
         raise ValueError("User ID not found in the db. Please set the user first.")
 
-    # Require a restaurant review before allowing food reviews
+    # Require the user to be an owner or coauthor of a restaurant review
     reviews_col = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
-    has_review = reviews_col.find_one({"user_id": user_id, "restaurant_id": request.restaurant_id})
+    has_review = reviews_col.find_one({
+        "restaurant_id": request.restaurant_id,
+        "$or": [
+            {"user_id": user_id},
+            {"coauthor_ids": user_id},
+        ],
+    })
     if not has_review:
         raise ValueError("You must submit a restaurant review before adding a food review.")
 

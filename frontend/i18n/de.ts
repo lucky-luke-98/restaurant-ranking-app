@@ -179,6 +179,8 @@ const de: Translations = {
   coauthors: 'Co-Autoren',
   withCoauthors: 'mit',
   inviteFriend: 'Freund einladen',
+  leaveReview: 'Verlassen',
+  confirmLeaveReview: 'Diese Bewertung verlassen?',
 
   // Admin Panel
   adminPanel: 'Admin-Bereich',

@@ -167,6 +167,9 @@ class GetVisitedByUserRequest(BaseModel):
 class DeleteVisitedEntryRequest(BaseModel):
     entry_id: str = Field(..., description="ID of the visited entry to delete.")
 
+class LeaveReviewResponse(BaseModel):
+    success: bool
+
 
 # ==================== responses ==================== #
 

@@ -87,6 +87,7 @@ export default function RestaurantDetailScreen() {
 
   const [imagesLoading, setImagesLoading] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<{ id: string } | null>(null)
+  const [confirmLeave, setConfirmLeave] = useState<{ id: string } | null>(null)
 
   const fetchData = useCallback(() => {
     setLoading(true)
@@ -103,7 +104,16 @@ export default function RestaurantDetailScreen() {
             const bOwn = user && b.user_id === user.user_id ? 0 : 1
             return aOwn - bOwn
           })
-        const sortedReviews = sortOwn(reviewsData.reviews)
+        const sortReviews = (items: Review[]) =>
+          [...items].sort((a, b) => {
+            const rank = (r: Review) => {
+              if (user && r.user_id === user.user_id) return 0
+              if (user && r.coauthors?.some((c) => c.user_id === user.user_id)) return 1
+              return 2
+            }
+            return rank(a) - rank(b)
+          })
+        const sortedReviews = sortReviews(reviewsData.reviews)
         setReviews(sortedReviews)
         setFoodReviews(sortOwn(foodReviewsData.food_reviews))
         setLoading(false)
@@ -209,8 +219,19 @@ export default function RestaurantDetailScreen() {
     fetchData()
   }
 
+  const handleLeaveReview = (reviewId: string) => {
+    setConfirmLeave({ id: reviewId })
+  }
+
+  const executeLeave = async () => {
+    if (!confirmLeave) return
+    await apiClient.post(`/restaurant/reviews/${confirmLeave.id}/leave`, {})
+    setConfirmLeave(null)
+    fetchData()
+  }
+
   const handleEditReview = (review: Review) => {
-    const userFoods = foodReviewsByUser.get(review.user_id) ?? []
+    const userFoods = foodReviewsByUser.get(user?.user_id ?? review.user_id) ?? []
     setEditingReview({
       review_id: review.review_id,
       cleanliness_rating: review.cleanliness_rating,
@@ -369,9 +390,11 @@ export default function RestaurantDetailScreen() {
                 review={review}
                 foodReviews={foodReviewsByUser.get(review.user_id) ?? []}
                 isOwn={!!user && review.user_id === user.user_id}
+                isCoauthor={!!user && !!review.coauthors?.some((c) => c.user_id === user.user_id)}
                 imagesLoading={imagesLoading}
                 onEdit={handleEditReview}
                 onDelete={handleDeleteReview}
+                onLeave={handleLeaveReview}
               />
             ))
           )}
@@ -393,6 +416,16 @@ export default function RestaurantDetailScreen() {
         cancelLabel={t.cancel}
         onConfirm={executeDelete}
         onCancel={() => setConfirmDelete(null)}
+      />
+
+      <ConfirmModal
+        visible={!!confirmLeave}
+        title={t.confirmLeaveReview}
+        message={t.confirmLeaveReview}
+        confirmLabel={t.leaveReview}
+        cancelLabel={t.cancel}
+        onConfirm={executeLeave}
+        onCancel={() => setConfirmLeave(null)}
       />
     </>
   )

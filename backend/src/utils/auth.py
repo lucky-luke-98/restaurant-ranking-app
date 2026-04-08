@@ -69,3 +69,16 @@ def enforce_owner(current_user: dict, user_id: str) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this resource.",
         )
+
+
+def enforce_owner_or_coauthor(current_user: dict, review: dict) -> None:
+    """Raises 403 if the authenticated user is neither the owner nor a coauthor of the review."""
+    uid = current_user.get("user_id")
+    if uid == review.get("user_id"):
+        return
+    if uid in review.get("coauthor_ids", []):
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="You do not have permission to access this resource.",
+    )

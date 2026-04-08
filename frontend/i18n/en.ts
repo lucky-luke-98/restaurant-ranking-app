@@ -177,6 +177,8 @@ const en = {
   coauthors: 'Co-authors',
   withCoauthors: 'with',
   inviteFriend: 'Invite friend',
+  leaveReview: 'Leave',
+  confirmLeaveReview: 'Leave this review?',
 
   // Admin Panel
   adminPanel: 'Admin Panel',

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { View, Text, Pressable, Image, ScrollView, ActivityIndicator } from 'react-native'
-import { PencilSimpleIcon, TrashIcon, CaretDownIcon, CaretUpIcon } from 'phosphor-react-native'
+import { PencilSimpleIcon, TrashIcon, SignOutIcon, CaretDownIcon, CaretUpIcon } from 'phosphor-react-native'
 import ImageViewer from '@/components/viewers/ImageViewer'
 import { useTranslation } from '@/services/LanguageContext'
 import { useThemeColors } from '@/hooks/useThemeColors'
@@ -45,9 +45,11 @@ interface ReviewCardProps {
   }
   foodReviews: FoodReview[]
   isOwn: boolean
+  isCoauthor: boolean
   imagesLoading: boolean
   onEdit: (review: ReviewCardProps['review']) => void
   onDelete: (reviewId: string) => void
+  onLeave: (reviewId: string) => void
 }
 
 function ratingColor(value: number): string {
@@ -56,7 +58,7 @@ function ratingColor(value: number): string {
   return '#F44336'
 }
 
-export default function ReviewCard({ review, foodReviews, isOwn, imagesLoading, onEdit, onDelete }: ReviewCardProps) {
+export default function ReviewCard({ review, foodReviews, isOwn, isCoauthor, imagesLoading, onEdit, onDelete, onLeave }: ReviewCardProps) {
   const { t } = useTranslation()
   const colors = useThemeColors()
   const styles = useMemo(() => createStyles(colors), [colors])
@@ -198,7 +200,7 @@ export default function ReviewCard({ review, foodReviews, isOwn, imagesLoading, 
         </View>
       )}
 
-      {isOwn ? (
+      {(isOwn || isCoauthor) ? (
         <View style={styles.actionRow}>
           <Pressable
             style={styles.editButton}
@@ -207,13 +209,23 @@ export default function ReviewCard({ review, foodReviews, isOwn, imagesLoading, 
             <PencilSimpleIcon size={14} color={colors.tint} />
             <Text style={styles.editButtonText}>{t.edit}</Text>
           </Pressable>
-          <Pressable
-            style={styles.deleteButton}
-            onPress={() => onDelete(review.review_id)}
-          >
-            <TrashIcon size={14} color={colors.error} />
-            <Text style={styles.deleteButtonText}>{t.delete}</Text>
-          </Pressable>
+          {isOwn ? (
+            <Pressable
+              style={styles.deleteButton}
+              onPress={() => onDelete(review.review_id)}
+            >
+              <TrashIcon size={14} color={colors.error} />
+              <Text style={styles.deleteButtonText}>{t.delete}</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              style={styles.deleteButton}
+              onPress={() => onLeave(review.review_id)}
+            >
+              <SignOutIcon size={14} color={colors.error} />
+              <Text style={styles.deleteButtonText}>{t.leaveReview}</Text>
+            </Pressable>
+          )}
         </View>
       ) : null}
     </View>

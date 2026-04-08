@@ -43,6 +43,7 @@ from src.restaurants.models import (
     CreateVisitedEntryResponse,
     GetVisitedByUserResponse,
     DeleteVisitedEntryResponse,
+    LeaveReviewResponse,
 )
 from src.restaurants.services import (
     search_places,
@@ -56,6 +57,7 @@ from src.restaurants.services import (
     get_review_by_id,
     update_restaurant_review,
     delete_review,
+    leave_review,
     create_food_review,
     get_food_reviews_by_restaurant,
     get_food_review_by_id,
@@ -74,7 +76,7 @@ from src.restaurants.services import (
     delete_visited_entry,
     move_wishlist_to_visited_entry,
 )
-from src.utils.auth import get_current_user, enforce_owner
+from src.utils.auth import get_current_user, enforce_owner, enforce_owner_or_coauthor
 from src.utils.rate_limit import limiter
 
 router = APIRouter()
@@ -230,12 +232,12 @@ async def update_review(
     request: UpdateRestaurantReviewRequest,
     current_user: dict = Depends(get_current_user),
 ) -> UpdateRestaurantReviewResponse:
-    """Endpoint to update a restaurant review."""
+    """Endpoint to update a restaurant review. Owner and coauthors may edit."""
     try:
         review = await to_thread(get_review_by_id, review_id=request.review_id)
         if not review:
             raise HTTPException(status_code=404, detail="Review not found.")
-        enforce_owner(current_user, review["user_id"])
+        enforce_owner_or_coauthor(current_user, review)
         success = await to_thread(update_restaurant_review, request=request)
         return UpdateRestaurantReviewResponse(success=success)
     except HTTPException:
@@ -258,6 +260,27 @@ async def remove_review(
         request = DeleteReviewRequest(review_id=review_id)
         success = await to_thread(delete_review, request=request)
         return DeleteReviewResponse(success=success)
+    except HTTPException:
+        raise
+    except Exception as exp:
+        raise HTTPException(status_code=500, detail=str(exp))
+
+
+@router.post("/reviews/{review_id}/leave")
+async def leave_review_endpoint(
+    review_id: str,
+    current_user: dict = Depends(get_current_user),
+) -> LeaveReviewResponse:
+    """Endpoint for a coauthor to remove themselves from a review."""
+    try:
+        review = await to_thread(get_review_by_id, review_id=review_id)
+        if not review:
+            raise HTTPException(status_code=404, detail="Review not found.")
+        user_id = current_user["user_id"]
+        if user_id not in review.get("coauthor_ids", []):
+            raise HTTPException(status_code=403, detail="You are not a coauthor of this review.")
+        success = await to_thread(leave_review, review_id=review_id, user_id=user_id)
+        return LeaveReviewResponse(success=success)
     except HTTPException:
         raise
     except Exception as exp:
