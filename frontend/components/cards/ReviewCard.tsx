@@ -3,7 +3,7 @@ import { View, Text, Pressable, Image, ScrollView, ActivityIndicator } from 'rea
 import { PencilSimpleIcon, TrashIcon, SignOutIcon, CaretDownIcon, CaretUpIcon } from 'phosphor-react-native'
 import ImageViewer from '@/components/viewers/ImageViewer'
 import { useTranslation } from '@/services/LanguageContext'
-import { useThemeColors } from '@/hooks/useThemeColors'
+import { useThemeColors, useThemeShadows } from '@/hooks/useThemeColors'
 import { createStyles } from './ReviewCard.styles'
 
 interface ReviewCoauthor {
@@ -61,7 +61,8 @@ function ratingColor(value: number): string {
 export default function ReviewCard({ review, foodReviews, isOwn, isCoauthor, imagesLoading, onEdit, onDelete, onLeave }: ReviewCardProps) {
   const { t } = useTranslation()
   const colors = useThemeColors()
-  const styles = useMemo(() => createStyles(colors), [colors])
+  const shadows = useThemeShadows()
+  const styles = useMemo(() => createStyles(colors, shadows), [colors, shadows])
   const [foodExpanded, setFoodExpanded] = useState(false)
 
   const allAuthors = useMemo(() => {

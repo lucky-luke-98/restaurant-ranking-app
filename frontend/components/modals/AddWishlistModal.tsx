@@ -23,11 +23,13 @@ interface PlaceResult {
   address: string
 }
 
+const WISHLIST_COMMENT_MAX = 400
+
 interface AddWishlistModalProps {
   visible: boolean
   onClose: () => void
   onCreated: () => void
-  onSubmit: (googlePlaceId: string, cuisineType: CuisineType) => Promise<void>
+  onSubmit: (googlePlaceId: string, cuisineType: CuisineType, comment: string) => Promise<void>
 }
 
 export default function AddWishlistModal({
@@ -46,6 +48,7 @@ export default function AddWishlistModal({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedPlace, setSelectedPlace] = useState<PlaceResult | null>(null)
+  const [comment, setComment] = useState('')
 
   useEffect(() => {
     if (!visible) {
@@ -53,6 +56,7 @@ export default function AddWishlistModal({
       setResults([])
       setHasSearched(false)
       setSelectedPlace(null)
+      setComment('')
       setError(null)
     }
   }, [visible])
@@ -81,7 +85,7 @@ export default function AddWishlistModal({
     setSubmitting(true)
     setError(null)
     try {
-      await onSubmit(selectedPlace.google_place_id, cuisineType)
+      await onSubmit(selectedPlace.google_place_id, cuisineType, comment.trim())
       onCreated()
     } catch (err: any) {
       setError(err.message ?? t.failedCreateRestaurant)
@@ -95,12 +99,14 @@ export default function AddWishlistModal({
     setResults([])
     setHasSearched(false)
     setSelectedPlace(null)
+    setComment('')
     setError(null)
     onClose()
   }
 
   const handleBackToSearch = () => {
     setSelectedPlace(null)
+    setComment('')
     setError(null)
   }
 
@@ -129,6 +135,19 @@ export default function AddWishlistModal({
 
           {selectedPlace ? (
             <ScrollView keyboardShouldPersistTaps="handled">
+              <Text style={styles.fieldLabel}>{t.wishlistCommentLabel}</Text>
+              <TextInput
+                style={styles.commentInput}
+                value={comment}
+                onChangeText={(v) => setComment(v.slice(0, WISHLIST_COMMENT_MAX))}
+                placeholder={t.wishlistCommentPlaceholder}
+                placeholderTextColor={colors.textPlaceholder}
+                multiline
+                maxLength={WISHLIST_COMMENT_MAX}
+              />
+              <Text style={styles.charCount}>
+                {t.charsRemaining(WISHLIST_COMMENT_MAX - comment.length)}
+              </Text>
               <Text style={styles.cuisinePrompt}>{t.selectCuisineType}</Text>
               <View style={styles.cuisineGrid}>
                 {CUISINE_TYPES.map((ct) => {

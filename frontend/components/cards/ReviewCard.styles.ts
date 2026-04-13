@@ -1,12 +1,13 @@
 import { StyleSheet } from 'react-native'
-import { ThemeColors } from '@/constants/Colors'
+import { ThemeColors, ThemeShadows } from '@/constants/Colors'
 
-export const createStyles = (colors: ThemeColors) => StyleSheet.create({
+export const createStyles = (colors: ThemeColors, shadows: ThemeShadows) => StyleSheet.create({
   card: {
     backgroundColor: colors.backgroundCard,
     borderRadius: 10,
     padding: 14,
     marginBottom: 10,
+    ...shadows.card,
   },
   ownCard: {
     borderLeftWidth: 3,

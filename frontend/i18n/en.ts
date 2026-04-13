@@ -84,6 +84,15 @@ const en = {
   addingRestaurant: 'Adding restaurant...',
   failedCreateRestaurant: 'Failed to create restaurant',
 
+  // Wishlist Comment
+  wishlistCommentLabel: 'Why do you want to visit? (optional)',
+  wishlistCommentPlaceholder: 'e.g. "Friends raved about the tiramisu"',
+  editWishlistComment: 'Edit note',
+  addWishlistComment: 'Add a note',
+  wishlistCommentTitle: 'Your note',
+  save: 'Save',
+  charsRemaining: (n: number) => `${n} characters left`,
+
   // Add Visited Modal
   addVisitedTitle: 'Add Visited',
   fromWishlistTitle: 'From Wishlist',

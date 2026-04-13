@@ -86,6 +86,15 @@ const de: Translations = {
   addingRestaurant: 'Restaurant wird hinzugef\u00FCgt...',
   failedCreateRestaurant: 'Restaurant konnte nicht erstellt werden',
 
+  // Wishlist Comment
+  wishlistCommentLabel: 'Warum willst du hingehen? (optional)',
+  wishlistCommentPlaceholder: 'z.B. "Freunde schw\u00E4rmen vom Tiramisu"',
+  editWishlistComment: 'Notiz bearbeiten',
+  addWishlistComment: 'Notiz hinzuf\u00FCgen',
+  wishlistCommentTitle: 'Deine Notiz',
+  save: 'Speichern',
+  charsRemaining: (n: number) => `Noch ${n} Zeichen`,
+
   // Add Visited Modal
   addVisitedTitle: 'Besuchtes hinzuf\u00FCgen',
   fromWishlistTitle: 'Von Wunschliste',

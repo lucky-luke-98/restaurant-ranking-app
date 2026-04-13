@@ -13,7 +13,7 @@ import {
   BreadIcon,
   FireIcon,
   SparkleIcon,
-  DotsThreeIcon,
+  CarrotIcon,
 } from 'phosphor-react-native'
 import type { ComponentType } from 'react'
 
@@ -73,5 +73,5 @@ export const CUISINE_ICONS: Record<CuisineType, ComponentType<any>> = {
   sandwiches: BreadIcon,
   bbq: FireIcon,
   fusion: SparkleIcon,
-  others: DotsThreeIcon,
+  others: CarrotIcon,
 }

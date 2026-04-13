@@ -8,13 +8,14 @@ import {
   Platform,
 } from 'react-native'
 import { useLocalSearchParams, Stack } from 'expo-router'
-import { PlusIcon, StarIcon } from 'phosphor-react-native'
+import { PlusIcon, StarIcon, NotepadIcon, PencilSimpleIcon } from 'phosphor-react-native'
 import { CUISINE_ICONS, CUISINE_LABEL_KEYS, type CuisineType } from '@/constants/CuisineTypes'
 import apiClient, { ApiError } from '@/services/apiClient'
 import { useAuth } from '@/services/AuthContext'
 import ReviewCard from '@/components/cards/ReviewCard'
 import AddReviewModal, { ReviewInitialValues, FoodItemEntry } from '@/components/modals/AddReviewModal'
 import ConfirmModal from '@/components/modals/ConfirmModal'
+import EditWishlistCommentModal from '@/components/modals/EditWishlistCommentModal'
 import { useTranslation } from '@/services/LanguageContext'
 import { useThemeColors } from '@/hooks/useThemeColors'
 import { createStyles } from './RestaurantDetailScreen.styles'
@@ -88,6 +89,8 @@ export default function RestaurantDetailScreen() {
   const [imagesLoading, setImagesLoading] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<{ id: string } | null>(null)
   const [confirmLeave, setConfirmLeave] = useState<{ id: string } | null>(null)
+  const [wishlistEntry, setWishlistEntry] = useState<{ entry_id: string; comment?: string | null } | null>(null)
+  const [editCommentVisible, setEditCommentVisible] = useState(false)
 
   const fetchData = useCallback(() => {
     setLoading(true)
@@ -95,9 +98,14 @@ export default function RestaurantDetailScreen() {
       apiClient.get<{ restaurant: Restaurant }>(`/restaurant/${id}`),
       apiClient.get<{ reviews: Review[] }>(`/restaurant/reviews/${id}`),
       apiClient.get<{ food_reviews: FoodReview[] }>(`/restaurant/reviews/food/${id}`),
+      apiClient.get<{ entries: { entry_id: string; restaurant_id: string; comment?: string | null }[] }>(
+        '/restaurant/wishlist/me',
+      ).catch(() => ({ entries: [] as { entry_id: string; restaurant_id: string; comment?: string | null }[] })),
     ])
-      .then(([restaurantData, reviewsData, foodReviewsData]) => {
+      .then(([restaurantData, reviewsData, foodReviewsData, wishlistData]) => {
         setRestaurant(restaurantData.restaurant)
+        const wl = wishlistData.entries.find((e) => e.restaurant_id === id)
+        setWishlistEntry(wl ? { entry_id: wl.entry_id, comment: wl.comment ?? null } : null)
         const sortOwn = <T extends { user_id: string }>(items: T[]) =>
           [...items].sort((a, b) => {
             const aOwn = user && a.user_id === user.user_id ? 0 : 1
@@ -219,6 +227,16 @@ export default function RestaurantDetailScreen() {
     fetchData()
   }
 
+  const handleSaveWishlistComment = async (comment: string) => {
+    if (!wishlistEntry) return
+    await apiClient.put('/restaurant/wishlist', {
+      entry_id: wishlistEntry.entry_id,
+      comment: comment || null,
+    })
+    setEditCommentVisible(false)
+    fetchData()
+  }
+
   const handleLeaveReview = (reviewId: string) => {
     setConfirmLeave({ id: reviewId })
   }
@@ -246,6 +264,7 @@ export default function RestaurantDetailScreen() {
         comment: fr.comment ?? '',
       })),
       coauthors: review.coauthors,
+      images: review.images?.map((img) => img.data) ?? [],
     })
     setReviewModalVisible(true)
   }
@@ -267,6 +286,7 @@ export default function RestaurantDetailScreen() {
       comment: data.comment,
       ...(data.visited_at ? { visited_at: data.visited_at } : {}),
       coauthor_ids: data.coauthor_ids ?? [],
+      images: data.images,
     })
 
     const existingFoodIds = new Set(
@@ -368,6 +388,30 @@ export default function RestaurantDetailScreen() {
               </Text>
             </View>
           )}
+          {wishlistEntry && (
+            <Pressable
+              style={({ pressed }) => [
+                wishlistEntry.comment ? styles.wishlistNote : styles.wishlistNoteEmpty,
+                pressed && { opacity: 0.7 },
+              ]}
+              onPress={() => setEditCommentVisible(true)}
+            >
+              <NotepadIcon
+                size={18}
+                color={wishlistEntry.comment ? colors.primary : colors.textFaint}
+                weight="duotone"
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.wishlistNoteLabel}>{t.wishlistCommentTitle}</Text>
+                {wishlistEntry.comment ? (
+                  <Text style={styles.wishlistNoteText}>{wishlistEntry.comment}</Text>
+                ) : (
+                  <Text style={styles.wishlistNoteEmptyText}>{t.addWishlistComment}</Text>
+                )}
+              </View>
+              <PencilSimpleIcon size={15} color={colors.textFaint} />
+            </Pressable>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -406,6 +450,13 @@ export default function RestaurantDetailScreen() {
         initialValues={editingReview}
         onClose={() => { setReviewModalVisible(false); setEditingReview(null) }}
         onSubmit={editingReview ? handleUpdateReview : handleAddReview}
+      />
+
+      <EditWishlistCommentModal
+        visible={editCommentVisible}
+        initialComment={wishlistEntry?.comment ?? ''}
+        onClose={() => setEditCommentVisible(false)}
+        onSave={handleSaveWishlistComment}
       />
 
       <ConfirmModal

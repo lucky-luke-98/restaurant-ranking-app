@@ -59,6 +59,13 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
     textAlignVertical: 'top',
     marginBottom: 20,
   },
+  charCount: {
+    color: colors.textFaint,
+    fontSize: 12,
+    textAlign: 'right',
+    marginTop: -16,
+    marginBottom: 16,
+  },
   // Food items section
   foodSection: {
     marginBottom: 20,

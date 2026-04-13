@@ -22,6 +22,7 @@ from src.restaurants.models import (
     CreateVisitedEntryRequest,
     UpdateRestaurantReviewRequest,
     UpdateFoodReviewRequest,
+    UpdateWishlistEntryRequest,
     GetRestaurantByIdRequest,
     GetReviewsByRestaurantRequest,
     GetFoodReviewsByRestaurantRequest,
@@ -367,14 +368,26 @@ def update_restaurant_review(request: UpdateRestaurantReviewRequest) -> bool:
                     visited_col.insert_one(entry.model_dump())
                 wishlist_col.delete_one({"user_id": coauthor_id, "restaurant_id": review["restaurant_id"]})
 
+    # Handle images update: replace the full set when provided
+    images_changed = False
+    if request.images is not None:
+        MAX_IMAGE_BYTES = 12_000_000
+        valid_images = [img for img in request.images if len(img) <= MAX_IMAGE_BYTES]
+        images_collection = get_mongo_collection(collection_name=settings.mongo_images_collection)
+        images_collection.delete_many({"review_id": request.review_id})
+        for img_data in valid_images:
+            doc = ReviewImage(review_id=request.review_id, data=img_data).model_dump()
+            images_collection.insert_one(doc)
+        images_changed = True
+
     if not updates:
-        return False
+        return images_changed
     updates["updated_at"] = datetime.now(timezone.utc).isoformat()
     result = collection.update_one(
         {"review_id": request.review_id},
         {"$set": updates},
     )
-    return result.modified_count > 0
+    return result.modified_count > 0 or images_changed
 
 
 @service
@@ -628,6 +641,20 @@ def delete_wishlist_entry(request: DeleteWishlistEntryRequest) -> bool:
     collection = get_mongo_collection(collection_name=settings.mongo_wishlist_collection)
     result = collection.delete_one({"entry_id": request.entry_id})
     return result.deleted_count > 0
+
+
+@service
+def update_wishlist_entry(request: UpdateWishlistEntryRequest) -> bool:
+    """
+    Updates the comment on a wishlist entry. Pass comment=None or empty string to clear it.
+    """
+    collection = get_mongo_collection(collection_name=settings.mongo_wishlist_collection)
+    comment = request.comment.strip() if request.comment else None
+    result = collection.update_one(
+        {"entry_id": request.entry_id},
+        {"$set": {"comment": comment or None}},
+    )
+    return result.modified_count > 0
 
 
 def delete_wishlist_entry_by_user_and_restaurant(user_id: str, restaurant_id: str) -> bool:

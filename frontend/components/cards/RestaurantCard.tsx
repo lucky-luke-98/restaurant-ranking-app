@@ -1,9 +1,9 @@
 import { useMemo } from 'react'
 import { View, Text, Pressable } from 'react-native'
 import { useRouter } from 'expo-router'
-import { MapPinIcon, CaretRightIcon, StarIcon, TrashIcon, CalendarIcon } from 'phosphor-react-native'
+import { MapPinIcon, CaretRightIcon, StarIcon, TrashIcon, CalendarIcon, NotepadIcon, PencilSimpleIcon } from 'phosphor-react-native'
 import { useTranslation } from '@/services/LanguageContext'
-import { useThemeColors } from '@/hooks/useThemeColors'
+import { useThemeColors, useThemeShadows } from '@/hooks/useThemeColors'
 import { CUISINE_ICONS, CUISINE_LABEL_KEYS, type CuisineType } from '@/constants/CuisineTypes'
 import { createStyles } from './RestaurantCard.styles'
 
@@ -25,6 +25,8 @@ interface RestaurantCardProps {
   restaurant: Restaurant
   stats?: FoodReviewStats
   onDelete?: (restaurantId: string) => void
+  wishlistComment?: string | null
+  onEditComment?: (restaurantId: string) => void
 }
 
 function ratingColor(value: number): string {
@@ -33,11 +35,12 @@ function ratingColor(value: number): string {
   return '#F44336'
 }
 
-export default function RestaurantCard({ restaurant, stats, onDelete }: RestaurantCardProps) {
+export default function RestaurantCard({ restaurant, stats, onDelete, wishlistComment, onEditComment }: RestaurantCardProps) {
   const router = useRouter()
   const { t } = useTranslation()
   const colors = useThemeColors()
-  const styles = useMemo(() => createStyles(colors), [colors])
+  const shadows = useThemeShadows()
+  const styles = useMemo(() => createStyles(colors, shadows), [colors, shadows])
 
   const cuisineKey = restaurant.cuisine_type as CuisineType
   const CuisineIcon = CUISINE_ICONS[cuisineKey] ?? CUISINE_ICONS.others
@@ -75,6 +78,26 @@ export default function RestaurantCard({ restaurant, stats, onDelete }: Restaura
           </View>
           <CaretRightIcon size={18} color={colors.textFaint} />
         </View>
+        {onEditComment && (wishlistComment ? (
+          <Pressable
+            style={({ pressed }) => [styles.commentRow, pressed && styles.commentRowPressed]}
+            onPress={() => onEditComment(restaurant.restaurant_id)}
+            hitSlop={4}
+          >
+            <NotepadIcon size={14} color={colors.textMuted} weight="duotone" style={styles.commentIcon} />
+            <Text style={styles.commentText} numberOfLines={2}>{wishlistComment}</Text>
+            <PencilSimpleIcon size={13} color={colors.textFaint} style={styles.commentEditIcon} />
+          </Pressable>
+        ) : (
+          <Pressable
+            style={({ pressed }) => [styles.addCommentRow, pressed && styles.commentRowPressed]}
+            onPress={() => onEditComment(restaurant.restaurant_id)}
+            hitSlop={4}
+          >
+            <PencilSimpleIcon size={13} color={colors.textFaint} />
+            <Text style={styles.addCommentText}>{t.addWishlistComment}</Text>
+          </Pressable>
+        ))}
         {(stats || onDelete) && (
           <View style={styles.bottomRow}>
             <View style={styles.statsLeft}>

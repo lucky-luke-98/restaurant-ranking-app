@@ -20,6 +20,8 @@ import apiClient from '@/services/apiClient'
 import { createStyles } from './AddReviewModal.styles'
 import * as ImagePicker from 'expo-image-picker'
 
+const REVIEW_COMMENT_MAX = 1500
+
 interface Friend {
   user_id: string
   first_name: string
@@ -43,6 +45,7 @@ export interface ReviewInitialValues {
   visited_at?: string
   food_items?: FoodItemEntry[]
   coauthors?: { user_id: string; first_name: string; avatar?: string }[]
+  images?: string[]
 }
 
 interface AddReviewModalProps {
@@ -137,6 +140,9 @@ export default function AddReviewModal({
               avatar: c.avatar,
             }))
           )
+        }
+        if (initialValues.images && initialValues.images.length > 0) {
+          setImages(initialValues.images)
         }
       }
     }
@@ -337,12 +343,16 @@ export default function AddReviewModal({
             <TextInput
               style={styles.textInput}
               value={comment}
-              onChangeText={setComment}
+              onChangeText={(v) => setComment(v.slice(0, REVIEW_COMMENT_MAX))}
               placeholder={t.commentPlaceholder}
               placeholderTextColor={colors.textPlaceholder}
               multiline
               numberOfLines={4}
+              maxLength={REVIEW_COMMENT_MAX}
             />
+            <Text style={styles.charCount}>
+              {t.charsRemaining(REVIEW_COMMENT_MAX - comment.length)}
+            </Text>
 
             {/* Photos section (review-level) */}
             <Text style={styles.fieldLabel}>{t.photosOptional}</Text>
@@ -427,12 +437,16 @@ export default function AddReviewModal({
                   <TextInput
                     style={styles.textInput}
                     value={item.comment}
-                    onChangeText={(v) => updateFoodItem(item.key, 'comment', v)}
+                    onChangeText={(v) => updateFoodItem(item.key, 'comment', v.slice(0, REVIEW_COMMENT_MAX))}
                     placeholder={t.dishCommentPlaceholder}
                     placeholderTextColor={colors.textPlaceholder}
                     multiline
                     numberOfLines={2}
+                    maxLength={REVIEW_COMMENT_MAX}
                   />
+                  <Text style={styles.charCount}>
+                    {t.charsRemaining(REVIEW_COMMENT_MAX - (item.comment?.length ?? 0))}
+                  </Text>
                 </View>
               ))}
             </View>

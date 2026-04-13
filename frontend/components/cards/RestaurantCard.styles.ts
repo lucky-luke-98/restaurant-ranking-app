@@ -1,7 +1,7 @@
 import { StyleSheet } from 'react-native'
-import { ThemeColors } from '@/constants/Colors'
+import { ThemeColors, ThemeShadows } from '@/constants/Colors'
 
-export const createStyles = (colors: ThemeColors) => StyleSheet.create({
+export const createStyles = (colors: ThemeColors, shadows: ThemeShadows) => StyleSheet.create({
   card: {
     backgroundColor: colors.backgroundInput,
     borderRadius: 12,
@@ -9,6 +9,7 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
     cursor: 'pointer' as any,
     flexDirection: 'row',
     gap: 14,
+    ...shadows.card,
   },
   cardPressed: {
     opacity: 0.85,
@@ -44,6 +45,7 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.text,
     fontSize: 18,
     fontWeight: 'bold',
+    letterSpacing: -0.3,
     flexShrink: 1,
   },
   cuisineBadge: {
@@ -67,6 +69,46 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
   location: {
     color: colors.textMuted,
     fontSize: 14,
+  },
+  commentRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginTop: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: colors.backgroundButton,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+  },
+  commentRowPressed: {
+    opacity: 0.7,
+  },
+  commentText: {
+    flex: 1,
+    color: colors.textMuted,
+    fontSize: 13,
+    fontStyle: 'italic',
+    lineHeight: 18,
+  },
+  commentIcon: {
+    marginTop: 2,
+  },
+  commentEditIcon: {
+    marginTop: 3,
+  },
+  addCommentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 10,
+    paddingVertical: 6,
+  },
+  addCommentText: {
+    color: colors.textFaint,
+    fontSize: 13,
+    fontStyle: 'italic',
   },
   bottomRow: {
     flexDirection: 'row',

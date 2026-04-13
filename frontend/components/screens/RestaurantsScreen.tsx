@@ -11,13 +11,14 @@ import {
   ScrollView,
 } from 'react-native'
 import { Tabs, useNavigation } from 'expo-router'
-import { PlusIcon, CheckCircleIcon, HeartIcon, ForkKnifeIcon, MagnifyingGlassIcon } from 'phosphor-react-native'
+import { PlusIcon, CheckCircleIcon, HeartIcon, ForkKnifeIcon, FunnelIcon } from 'phosphor-react-native'
 import apiClient, { ApiError } from '@/services/apiClient'
 import { useAuth } from '@/services/AuthContext'
 import RestaurantCard from '@/components/cards/RestaurantCard'
 import AddWishlistModal from '@/components/modals/AddWishlistModal'
 import AddVisitedModal from '@/components/modals/AddVisitedModal'
 import ConfirmModal from '@/components/modals/ConfirmModal'
+import EditWishlistCommentModal from '@/components/modals/EditWishlistCommentModal'
 import DateInput from '@/components/inputs/DateInput'
 import { useTranslation } from '@/services/LanguageContext'
 import { useThemeColors } from '@/hooks/useThemeColors'
@@ -46,6 +47,7 @@ interface FoodReviewStatsEntry {
 interface ListEntry {
   entry_id: string
   restaurant_id: string
+  comment?: string | null
 }
 
 type Tab = 'visited' | 'wishlist'
@@ -65,6 +67,7 @@ export default function RestaurantsScreen() {
   const [addVisitedVisible, setAddVisitedVisible] = useState(false)
   const [activeTab, setActiveTab] = useState<Tab>('visited')
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [editCommentRestaurantId, setEditCommentRestaurantId] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
   const [filterModalVisible, setFilterModalVisible] = useState(false)
   const [filterFrom, setFilterFrom] = useState('')
@@ -141,6 +144,11 @@ export default function RestaurantsScreen() {
     () => new Set(wishlistEntries.map((e) => e.restaurant_id)),
     [wishlistEntries],
   )
+  const wishlistByRestaurantId = useMemo(() => {
+    const map: Record<string, ListEntry> = {}
+    for (const e of wishlistEntries) map[e.restaurant_id] = e
+    return map
+  }, [wishlistEntries])
 
   const hasActiveFilters = !!(filterName || filterCuisine || filterFrom || filterTo)
 
@@ -180,14 +188,27 @@ export default function RestaurantsScreen() {
     [restaurants, wishlistIds],
   )
 
-  const handleAddToWishlist = async (googlePlaceId: string, cuisineType: string) => {
+  const handleAddToWishlist = async (googlePlaceId: string, cuisineType: string, comment: string) => {
     const res = await apiClient.post<{ restaurant_id: string; success: boolean }>(
       '/restaurant',
       { google_place_id: googlePlaceId, cuisine_type: cuisineType },
     )
     await apiClient.post('/restaurant/wishlist', {
       restaurant_id: res.restaurant_id,
+      ...(comment ? { comment } : {}),
     })
+  }
+
+  const handleSaveWishlistComment = async (comment: string) => {
+    if (!editCommentRestaurantId) return
+    const entry = wishlistByRestaurantId[editCommentRestaurantId]
+    if (!entry) return
+    await apiClient.put('/restaurant/wishlist', {
+      entry_id: entry.entry_id,
+      comment: comment || null,
+    })
+    setEditCommentRestaurantId(null)
+    fetchAllData()
   }
 
   const handleAddVisitedFromSearch = async (googlePlaceId: string, cuisineType: string) => {
@@ -269,7 +290,7 @@ export default function RestaurantsScreen() {
                 hitSlop={8}
                 style={{ position: 'relative' }}
               >
-                <MagnifyingGlassIcon size={22} color={colors.text} weight="bold" />
+                <FunnelIcon size={22} color={colors.text} weight="bold" />
                 {hasActiveFilters && <View style={styles.activeFilterBadge} />}
               </Pressable>
               <Pressable onPress={openAddModal} hitSlop={8}>
@@ -336,6 +357,16 @@ export default function RestaurantsScreen() {
               restaurant={item}
               stats={foodStats[item.restaurant_id]}
               onDelete={handleDeleteEntry}
+              wishlistComment={
+                activeTab === 'wishlist'
+                  ? wishlistByRestaurantId[item.restaurant_id]?.comment ?? null
+                  : undefined
+              }
+              onEditComment={
+                activeTab === 'wishlist'
+                  ? (rid) => setEditCommentRestaurantId(rid)
+                  : undefined
+              }
             />
           )}
         />
@@ -363,6 +394,17 @@ export default function RestaurantsScreen() {
         wishlistRestaurants={wishlistRestaurants}
         onSelectFromWishlist={handleAddVisitedFromWishlist}
         onSubmitFromSearch={handleAddVisitedFromSearch}
+      />
+
+      <EditWishlistCommentModal
+        visible={!!editCommentRestaurantId}
+        initialComment={
+          editCommentRestaurantId
+            ? wishlistByRestaurantId[editCommentRestaurantId]?.comment ?? ''
+            : ''
+        }
+        onClose={() => setEditCommentRestaurantId(null)}
+        onSave={handleSaveWishlistComment}
       />
 
       <ConfirmModal

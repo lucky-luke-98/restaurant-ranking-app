@@ -38,4 +38,10 @@ class Settings(BaseSettings):
         description="Comma-separated list of allowed CORS origins.",
     )
 
+    # content limits
+    review_comment_max_length: int = Field(
+        1500,
+        description="Maximum character length for restaurant review and food review comments.",
+    )
+
 settings = Settings()

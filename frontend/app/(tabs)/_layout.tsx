@@ -1,7 +1,19 @@
 import { Tabs } from 'expo-router'
 import { ForkKnifeIcon, MapPinIcon, UserIcon } from 'phosphor-react-native'
+import { View } from 'react-native'
+import { useIsFocused } from '@react-navigation/native'
+import type { ReactNode } from 'react'
 import { useTranslation } from '@/services/LanguageContext'
 import { useThemeColors } from '@/hooks/useThemeColors'
+
+function FocusGuard({ children }: { children: ReactNode }) {
+  const isFocused = useIsFocused()
+  return (
+    <View style={{ flex: 1, display: isFocused ? 'flex' : 'none' }}>
+      {children}
+    </View>
+  )
+}
 
 export default function TabsLayout() {
   const { t } = useTranslation()
@@ -9,18 +21,21 @@ export default function TabsLayout() {
 
   return (
     <Tabs
+      screenLayout={({ children }) => <FocusGuard>{children}</FocusGuard>}
       screenOptions={{
         headerShown: true,
         tabBarActiveTintColor: colors.text,
         tabBarInactiveTintColor: colors.textFaint,
         tabBarStyle: {
-          backgroundColor: colors.background,
+          backgroundColor: colors.tabBarBackground,
           borderTopColor: colors.border,
         },
         headerStyle: {
-          backgroundColor: colors.background,
+          backgroundColor: colors.gradientTop,
         },
+        headerShadowVisible: false,
         headerTintColor: colors.text,
+        sceneStyle: { backgroundColor: 'transparent' },
       }}
     >
       <Tabs.Screen

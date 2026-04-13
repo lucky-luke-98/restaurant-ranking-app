@@ -4,6 +4,8 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field, field_validator
 
+from src.config import settings
+
 
 # ==================== entities ==================== #
 
@@ -25,7 +27,7 @@ class RestaurantReview(BaseModel):
     restaurant_id: str
     cleanliness_rating: float
     experience_rating: float
-    comment: str | None
+    comment: str | None = Field(None, max_length=settings.review_comment_max_length)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime | None = None
     visited_at: date | None = None
@@ -37,7 +39,7 @@ class FoodReview(BaseModel):
     food_name: str
     price: float
     rating: float
-    comment: str | None
+    comment: str | None = Field(None, max_length=settings.review_comment_max_length)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime | None = None
     visited_at: date | None = None
@@ -58,6 +60,7 @@ class WishlistEntry(BaseModel):
     entry_id: str = Field(default_factory=lambda: str(uuid4()))
     user_id: str
     restaurant_id: str
+    comment: str | None = None
 
 class VisitedEntry(BaseModel):
     entry_id: str = Field(default_factory=lambda: str(uuid4()))
@@ -98,7 +101,7 @@ class CreateRestaurantReviewRequest(BaseModel):
     restaurant_id: str = Field(..., description="ID of the restaurant being reviewed.")
     cleanliness_rating: float = Field(..., ge=0.0, le=10.0, description="Cleanliness rating given by the user (1 to 10).")
     experience_rating: float = Field(..., ge=0.0, le=10.0, description="Overall experience rating given by the user (1 to 10).")
-    comment: str | None = Field(None, description="Optional comment provided by the user.")
+    comment: str | None = Field(None, max_length=settings.review_comment_max_length, description="Optional comment provided by the user.")
     visited_at: date | None = Field(None, description="Optional date when the restaurant was visited.")
     coauthor_ids: list[str] = Field(default_factory=list, description="User IDs of friends who co-authored this review.")
     images: list[str] = Field(default_factory=list, description="List of base64-encoded images.")
@@ -108,7 +111,7 @@ class CreateFoodReviewRequest(BaseModel):
     food_name: str = Field(..., description="Name of the food item being reviewed by the user.")
     price: float = Field(..., gt=0.0, description="The price of the food.")
     rating: float = Field(..., ge=0.0, le=10.0, description="Rating given by the user (1 to 10).")
-    comment: str | None = Field(None, description="Optional comment provided by the user.")
+    comment: str | None = Field(None, max_length=settings.review_comment_max_length, description="Optional comment provided by the user.")
     images: list[str] = Field(default_factory=list, description="List of base64-encoded images.")
     visited_at: date | None = Field(None, description="Optional date when the restaurant was visited.")
 
@@ -116,20 +119,26 @@ class UpdateRestaurantReviewRequest(BaseModel):
     review_id: str = Field(..., description="ID of the review to update.")
     cleanliness_rating: float | None = Field(None, ge=0.0, le=10.0, description="Updated cleanliness rating.")
     experience_rating: float | None = Field(None, ge=0.0, le=10.0, description="Updated experience rating.")
-    comment: str | None = Field(None, description="Updated comment.")
+    comment: str | None = Field(None, max_length=settings.review_comment_max_length, description="Updated comment.")
     visited_at: date | None = Field(None, description="Updated visit date.")
     coauthor_ids: list[str] | None = Field(None, description="Updated list of coauthor user IDs.")
+    images: list[str] | None = Field(None, description="Updated list of base64-encoded images. If provided, replaces the full existing set.")
 
 class UpdateFoodReviewRequest(BaseModel):
     food_review_id: str = Field(..., description="ID of the food review to update.")
     food_name: str | None = Field(None, description="Updated food name.")
     price: float | None = Field(None, gt=0.0, description="Updated price.")
     rating: float | None = Field(None, ge=0.0, le=10.0, description="Updated rating.")
-    comment: str | None = Field(None, description="Updated comment.")
+    comment: str | None = Field(None, max_length=settings.review_comment_max_length, description="Updated comment.")
     visited_at: date | None = Field(None, description="Updated visit date.")
 
 class CreateWishlistEntryRequest(BaseModel):
     restaurant_id: str = Field(..., description="ID of the restaurant.")
+    comment: str | None = Field(None, max_length=400, description="Optional note on why you want to visit.")
+
+class UpdateWishlistEntryRequest(BaseModel):
+    entry_id: str = Field(..., description="ID of the wishlist entry to update.")
+    comment: str | None = Field(None, max_length=400, description="Updated comment. Pass empty string or null to clear.")
 
 class GetFoodReviewsByRestaurantRequest(BaseModel):
     restaurant_id: str = Field(..., description="ID of the restaurant to get food reviews for.")
@@ -219,6 +228,9 @@ class GetReviewedRestaurantIdsByUserResponse(BaseModel):
     restaurant_ids: list[str]
 
 class DeleteWishlistEntryResponse(BaseModel):
+    success: bool
+
+class UpdateWishlistEntryResponse(BaseModel):
     success: bool
 
 class CreateVisitedEntryResponse(BaseModel):

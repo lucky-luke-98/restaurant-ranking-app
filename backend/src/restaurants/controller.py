@@ -10,6 +10,7 @@ from src.restaurants.models import (
     CreateVisitedEntryRequest,
     UpdateRestaurantReviewRequest,
     UpdateFoodReviewRequest,
+    UpdateWishlistEntryRequest,
     GetRestaurantByIdRequest,
     GetReviewsByRestaurantRequest,
     GetFoodReviewsByRestaurantRequest,
@@ -40,6 +41,7 @@ from src.restaurants.models import (
     CreateWishlistEntryResponse,
     GetWishlistByUserResponse,
     DeleteWishlistEntryResponse,
+    UpdateWishlistEntryResponse,
     CreateVisitedEntryResponse,
     GetVisitedByUserResponse,
     DeleteVisitedEntryResponse,
@@ -69,6 +71,7 @@ from src.restaurants.services import (
     create_wishlist_entry,
     get_wishlist_by_user,
     get_wishlist_entry_by_id,
+    update_wishlist_entry,
     delete_wishlist_entry,
     create_visited_entry,
     get_visited_by_user,
@@ -412,6 +415,25 @@ async def get_wishlist(
         request = GetWishlistByUserRequest(user_id=user_id)
         entries = await to_thread(get_wishlist_by_user, request=request)
         return GetWishlistByUserResponse(entries=entries)
+    except Exception as exp:
+        raise HTTPException(status_code=500, detail=str(exp))
+
+
+@router.put("/wishlist")
+async def update_wishlist(
+    request: UpdateWishlistEntryRequest,
+    current_user: dict = Depends(get_current_user),
+) -> UpdateWishlistEntryResponse:
+    """Endpoint to update the comment on a wishlist entry. Owner only."""
+    try:
+        entry = await to_thread(get_wishlist_entry_by_id, entry_id=request.entry_id)
+        if not entry:
+            raise HTTPException(status_code=404, detail="Wishlist entry not found.")
+        enforce_owner(current_user, entry["user_id"])
+        success = await to_thread(update_wishlist_entry, request=request)
+        return UpdateWishlistEntryResponse(success=success)
+    except HTTPException:
+        raise
     except Exception as exp:
         raise HTTPException(status_code=500, detail=str(exp))
 
