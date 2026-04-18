@@ -32,19 +32,11 @@ class Settings(BaseSettings):
     mongo_images_collection: str = Field("images", description="The name of the collection that stores all food review images.")
     mongo_friends_collection: str = Field("friends", description="The name of the collection that stores friend connections.")
 
-    # cors
-    allowed_origins: str = Field(
-        "http://localhost:8081,http://localhost:19006",
-        description="Comma-separated list of allowed CORS origins.",
-    )
-
-    # content limits
-    review_comment_max_length: int = Field(
-        1500,
-        description="Maximum character length for restaurant review and food review comments.",
-    )
+    # api related
+    allowed_origins: str = Field("http://localhost:8081", description="Comma-separated list of allowed CORS origins.")
 
     # code-variables
+    review_comment_max_length: int = Field(1500, description="Maximum character length for restaurant review and food review comments.")
     g_places_details_url: str = Field("https://places.googleapis.com/v1/places", description="The google places url to fetch details from.")
     g_places_autocomplete_url: str = Field("https://places.googleapis.com/v1/places:autocomplete", description="The google places url to fetch places information (autocompletion).")
     max_image_bytes: int = Field(12_000_000, description="The maximum image bytes to store a review image. Limitation by storage with base64 and mongo.")
