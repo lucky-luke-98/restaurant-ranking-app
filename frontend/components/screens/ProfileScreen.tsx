@@ -1,13 +1,26 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { View, Text, Pressable, ScrollView, ActivityIndicator, Image, Platform, TextInput, RefreshControl } from 'react-native'
+import { View, Text, Pressable, ScrollView, ActivityIndicator, Image, Platform, RefreshControl, Modal } from 'react-native'
 import * as ImagePicker from 'expo-image-picker'
-import { SignOutIcon, CameraIcon, PlusIcon, XIcon, GearSixIcon, ShieldCheckIcon } from 'phosphor-react-native'
+import {
+  SignOutIcon,
+  CameraIcon,
+  PlusIcon,
+  XIcon,
+  GearSixIcon,
+  ShieldCheckIcon,
+  UsersThreeIcon,
+  SunIcon,
+  MoonIcon,
+  CaretRightIcon,
+  CheckIcon,
+} from 'phosphor-react-native'
 import { useTranslation, type Language } from '@/services/LanguageContext'
 import { useAppTheme, type ThemeMode } from '@/services/ThemeContext'
 import { useAuth } from '@/services/AuthContext'
 import { useThemeColors } from '@/hooks/useThemeColors'
 import apiClient from '@/services/apiClient'
 import ConfirmModal from '@/components/modals/ConfirmModal'
+import AddFriendModal from '@/components/modals/AddFriendModal'
 import { createStyles } from './ProfileScreen.styles'
 
 interface AdminUser {
@@ -67,13 +80,13 @@ export default function ProfileScreen() {
 
   const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
+  const [addFriendVisible, setAddFriendVisible] = useState(false)
+  const [languagePickerVisible, setLanguagePickerVisible] = useState(false)
 
-  // Friends state
   const [friends, setFriends] = useState<FriendUser[]>([])
   const [friendsLoading, setFriendsLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<FriendUser[]>([])
-  const [searching, setSearching] = useState(false)
+
+  const friendIds = useMemo(() => new Set(friends.map((f) => f.user_id)), [friends])
 
   const fetchFriends = useCallback(async () => {
     setFriendsLoading(true)
@@ -108,37 +121,6 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (isAdmin && activeTab === 'admin') fetchUsers()
   }, [isAdmin, activeTab, fetchUsers])
-
-  // Debounced user search
-  useEffect(() => {
-    if (searchQuery.trim().length < 2) {
-      setSearchResults([])
-      return
-    }
-    const timer = setTimeout(async () => {
-      setSearching(true)
-      try {
-        const data = await apiClient.get<{ users: FriendUser[] }>(
-          '/users/search',
-          { params: { query: searchQuery.trim() } },
-        )
-        const friendIds = new Set(friends.map((f) => f.user_id))
-        setSearchResults(data.users.filter((u) => !friendIds.has(u.user_id)))
-      } catch {
-        setSearchResults([])
-      } finally {
-        setSearching(false)
-      }
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [searchQuery, friends])
-
-  const handleAddFriend = async (friendUserId: string) => {
-    await apiClient.post('/users/friends', { friend_user_id: friendUserId })
-    setSearchQuery('')
-    setSearchResults([])
-    fetchFriends()
-  }
 
   const handleRemoveFriend = async (friendUserId: string) => {
     await apiClient.delete(`/users/friends/${friendUserId}`)
@@ -189,62 +171,35 @@ export default function ProfileScreen() {
     { key: 'de', label: 'Deutsch' },
   ]
 
-  const themeOptions: { key: ThemeMode; label: string }[] = [
-    { key: 'light', label: t.themeLight },
-    { key: 'dark', label: t.themeDark },
+  const themeOptions: { key: ThemeMode; label: string; Icon: typeof SunIcon }[] = [
+    { key: 'light', label: t.themeLight, Icon: SunIcon },
+    { key: 'dark', label: t.themeDark, Icon: MoonIcon },
   ]
+
+  const currentLanguageLabel = languageOptions.find((o) => o.key === language)?.label ?? ''
 
   const renderSettingsTab = () => (
     <>
-      {/* Friends */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t.friends}</Text>
-        <TextInput
-          style={styles.searchInput}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder={t.searchFriends}
-          placeholderTextColor={colors.textPlaceholder}
-        />
-        {searching && <ActivityIndicator size="small" style={{ paddingVertical: 8 }} />}
-        {searchResults.length > 0 && (
-          <View style={styles.searchResultsList}>
-            {searchResults.map((u) => (
-              <View key={u.user_id} style={styles.friendRow}>
-                {u.avatar ? (
-                  <Image
-                    source={{ uri: `data:image/jpeg;base64,${u.avatar}` }}
-                    style={styles.friendAvatar}
-                  />
-                ) : (
-                  <View style={styles.friendAvatarFallback}>
-                    <Text style={styles.friendAvatarText}>
-                      {u.first_name[0]}{u.last_name[0]}
-                    </Text>
-                  </View>
-                )}
-                <Text style={styles.friendName} numberOfLines={1}>
-                  {u.first_name} {u.last_name}
-                </Text>
-                <Pressable
-                  style={styles.friendAddButton}
-                  onPress={() => handleAddFriend(u.user_id)}
-                >
-                  <PlusIcon size={14} color="#fff" weight="bold" />
-                  <Text style={styles.friendAddButtonText}>{t.addFriend}</Text>
-                </Pressable>
-              </View>
-            ))}
-          </View>
-        )}
-        {searchQuery.trim().length >= 2 && !searching && searchResults.length === 0 && (
-          <Text style={styles.friendsEmptyText}>{t.noUsersFound}</Text>
-        )}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>{t.friends}</Text>
+          <Pressable
+            style={styles.sectionAction}
+            onPress={() => setAddFriendVisible(true)}
+            hitSlop={8}
+          >
+            <PlusIcon size={14} color={colors.background} weight="bold" />
+          </Pressable>
+        </View>
 
         {friendsLoading ? (
-          <ActivityIndicator size="small" style={{ paddingVertical: 12 }} />
+          <ActivityIndicator size="small" style={{ paddingVertical: 16 }} />
         ) : friends.length === 0 ? (
-          <Text style={styles.friendsEmptyText}>{t.noFriendsYet}</Text>
+          <View style={styles.emptyState}>
+            <UsersThreeIcon size={32} color={colors.textFaint} weight="regular" />
+            <Text style={styles.emptyStateText}>{t.noFriendsYet}</Text>
+            <Text style={styles.emptyStateHint}>{t.noFriendsHint}</Text>
+          </View>
         ) : (
           <View style={styles.friendsList}>
             {friends.map((f) => (
@@ -277,43 +232,55 @@ export default function ProfileScreen() {
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t.settingsLanguage}</Text>
-        <View style={styles.toggleRow}>
-          {languageOptions.map(({ key, label }) => (
-            <Pressable
-              key={key}
-              style={[styles.toggleOption, language === key && styles.toggleOptionActive]}
-              onPress={() => setLanguage(key)}
-            >
-              <Text style={[styles.toggleText, language === key && styles.toggleTextActive]}>
-                {label}
-              </Text>
-            </Pressable>
-          ))}
+        <Text style={styles.sectionTitle}>{t.preferences}</Text>
+        <View style={styles.preferencesCard}>
+          <Pressable
+            style={styles.languageRow}
+            onPress={() => setLanguagePickerVisible(true)}
+          >
+            <Text style={styles.preferenceLabel}>{t.settingsLanguage}</Text>
+            <View style={styles.languageRowValue}>
+              <Text style={styles.languageRowValueText}>{currentLanguageLabel}</Text>
+              <CaretRightIcon size={16} color={colors.textFaint} weight="bold" />
+            </View>
+          </Pressable>
+
+          <View style={styles.preferenceDivider} />
+
+          <View style={styles.themeSection}>
+            <Text style={styles.preferenceLabel}>{t.settingsTheme}</Text>
+            <View style={styles.themeTileRow}>
+              {themeOptions.map(({ key, label, Icon }) => {
+                const active = mode === key
+                return (
+                  <Pressable
+                    key={key}
+                    style={[styles.themeTile, active && styles.themeTileActive]}
+                    onPress={() => setMode(key)}
+                  >
+                    <Icon
+                      size={26}
+                      color={active ? colors.background : colors.textMuted}
+                      weight={active ? 'fill' : 'regular'}
+                    />
+                    <Text style={[styles.themeTileText, active && styles.themeTileTextActive]}>
+                      {label}
+                    </Text>
+                  </Pressable>
+                )
+              })}
+            </View>
+          </View>
         </View>
       </View>
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t.settingsTheme}</Text>
-        <View style={styles.toggleRow}>
-          {themeOptions.map(({ key, label }) => (
-            <Pressable
-              key={key}
-              style={[styles.toggleOption, mode === key && styles.toggleOptionActive]}
-              onPress={() => setMode(key)}
-            >
-              <Text style={[styles.toggleText, mode === key && styles.toggleTextActive]}>
-                {label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+        <Text style={styles.sectionTitle}>{t.account}</Text>
+        <Pressable style={styles.logoutButton} onPress={() => setLogoutConfirmVisible(true)}>
+          <SignOutIcon size={20} color={colors.error} />
+          <Text style={styles.logoutText}>{t.homeLogout}</Text>
+        </Pressable>
       </View>
-
-      <Pressable style={styles.logoutButton} onPress={() => setLogoutConfirmVisible(true)}>
-        <SignOutIcon size={20} color={colors.error} />
-        <Text style={styles.logoutText}>{t.homeLogout}</Text>
-      </Pressable>
     </>
   )
 
@@ -349,7 +316,6 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.outerContainer}>
-      {/* Admin tab bar — only visible for admins */}
       {isAdmin && (
         <View style={styles.profileTabBar}>
           <Pressable
@@ -394,7 +360,11 @@ export default function ProfileScreen() {
       >
         {user && (
           <View style={styles.profileHeader}>
-            <Pressable onPress={pickAvatar} style={styles.avatarWrapper}>
+            <Pressable
+              onPress={pickAvatar}
+              style={styles.avatarWrapper}
+              accessibilityLabel={t.editAvatar}
+            >
               {user.avatar ? (
                 <Image
                   source={{ uri: `data:image/jpeg;base64,${user.avatar}` }}
@@ -407,11 +377,11 @@ export default function ProfileScreen() {
                   </Text>
                 </View>
               )}
-              <View style={styles.avatarBadge}>
+              <View style={styles.avatarEditBadge}>
                 {uploading ? (
-                  <ActivityIndicator size={12} color="#fff" />
+                  <ActivityIndicator size={12} color={colors.background} />
                 ) : (
-                  <CameraIcon size={14} color="#fff" weight="bold" />
+                  <CameraIcon size={14} color={colors.background} weight="bold" />
                 )}
               </View>
             </Pressable>
@@ -422,6 +392,56 @@ export default function ProfileScreen() {
 
         {activeTab === 'settings' ? renderSettingsTab() : renderAdminTab()}
       </ScrollView>
+
+      <AddFriendModal
+        visible={addFriendVisible}
+        existingFriendIds={friendIds}
+        onClose={() => setAddFriendVisible(false)}
+        onFriendAdded={fetchFriends}
+      />
+
+      <Modal
+        visible={languagePickerVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setLanguagePickerVisible(false)}
+      >
+        <Pressable
+          style={styles.pickerOverlay}
+          onPress={() => setLanguagePickerVisible(false)}
+        >
+          <Pressable style={styles.pickerSheet} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.pickerHeader}>
+              <Text style={styles.pickerTitle}>{t.chooseLanguage}</Text>
+              <Pressable
+                onPress={() => setLanguagePickerVisible(false)}
+                hitSlop={12}
+                style={styles.pickerClose}
+              >
+                <XIcon size={18} color={colors.text} weight="bold" />
+              </Pressable>
+            </View>
+            {languageOptions.map(({ key, label }) => {
+              const active = language === key
+              return (
+                <Pressable
+                  key={key}
+                  style={styles.pickerRow}
+                  onPress={() => {
+                    setLanguage(key)
+                    setLanguagePickerVisible(false)
+                  }}
+                >
+                  <Text style={[styles.pickerRowText, active && styles.pickerRowTextActive]}>
+                    {label}
+                  </Text>
+                  {active && <CheckIcon size={18} color={colors.text} weight="bold" />}
+                </Pressable>
+              )
+            })}
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <ConfirmModal
         visible={logoutConfirmVisible}
