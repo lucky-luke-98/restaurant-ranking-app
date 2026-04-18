@@ -178,10 +178,10 @@ export default function MapScreen() {
       const [allRes, visitedRes, wishlistRes] = await Promise.all([
         apiClient.get<{ restaurants: Restaurant[] }>('/restaurant'),
         apiClient.get<{ entries: { restaurant_id: string }[] }>(
-          '/restaurant/visited/me',
+          '/visited/me',
         ),
         apiClient.get<{ entries: { restaurant_id: string }[] }>(
-          '/restaurant/wishlist/me',
+          '/wishlist/me',
         ),
       ])
       setRestaurants(allRes.restaurants)

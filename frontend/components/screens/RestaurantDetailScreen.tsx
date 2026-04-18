@@ -96,10 +96,10 @@ export default function RestaurantDetailScreen() {
     setLoading(true)
     Promise.all([
       apiClient.get<{ restaurant: Restaurant }>(`/restaurant/${id}`),
-      apiClient.get<{ reviews: Review[] }>(`/restaurant/reviews/${id}`),
-      apiClient.get<{ food_reviews: FoodReview[] }>(`/restaurant/reviews/food/${id}`),
+      apiClient.get<{ reviews: Review[] }>(`/review/${id}`),
+      apiClient.get<{ food_reviews: FoodReview[] }>(`/review/food/${id}`),
       apiClient.get<{ entries: { entry_id: string; restaurant_id: string; comment?: string | null }[] }>(
-        '/restaurant/wishlist/me',
+        '/wishlist/me',
       ).catch(() => ({ entries: [] as { entry_id: string; restaurant_id: string; comment?: string | null }[] })),
     ])
       .then(([restaurantData, reviewsData, foodReviewsData, wishlistData]) => {
@@ -132,7 +132,7 @@ export default function RestaurantDetailScreen() {
           sortedReviews.map(async (r) => {
             try {
               const imgData = await apiClient.get<{ images: ReviewImage[] }>(
-                `/restaurant/reviews/${r.review_id}/images`
+                `/review/${r.review_id}/images`
               )
               return { id: r.review_id, images: imgData.images }
             } catch {
@@ -184,7 +184,7 @@ export default function RestaurantDetailScreen() {
     food_items: FoodItemEntry[]
   }) => {
     // Create restaurant review (with images)
-    await apiClient.post('/restaurant/reviews', {
+    await apiClient.post('/review', {
       restaurant_id: id,
       cleanliness_rating: data.cleanliness_rating,
       experience_rating: data.experience_rating,
@@ -195,7 +195,7 @@ export default function RestaurantDetailScreen() {
     })
     // Create food reviews
     for (const item of data.food_items) {
-      await apiClient.post('/restaurant/reviews/food', {
+      await apiClient.post('/review/food', {
         restaurant_id: id,
         food_name: item.food_name,
         price: item.price,
@@ -215,13 +215,13 @@ export default function RestaurantDetailScreen() {
   const executeDelete = async () => {
     if (!confirmDelete) return
     // Delete the restaurant review (backend cascades image deletion)
-    await apiClient.delete(`/restaurant/reviews/${confirmDelete.id}`)
+    await apiClient.delete(`/review/${confirmDelete.id}`)
     // Also delete associated food reviews for this user
     const userFoodReviews = foodReviews.filter(
       (fr) => fr.user_id === user?.user_id
     )
     for (const fr of userFoodReviews) {
-      await apiClient.delete(`/restaurant/reviews/food/${fr.food_review_id}`)
+      await apiClient.delete(`/review/food/${fr.food_review_id}`)
     }
     setConfirmDelete(null)
     fetchData()
@@ -229,7 +229,7 @@ export default function RestaurantDetailScreen() {
 
   const handleSaveWishlistComment = async (comment: string) => {
     if (!wishlistEntry) return
-    await apiClient.put('/restaurant/wishlist', {
+    await apiClient.put('/wishlist', {
       entry_id: wishlistEntry.entry_id,
       comment: comment || null,
     })
@@ -243,7 +243,7 @@ export default function RestaurantDetailScreen() {
 
   const executeLeave = async () => {
     if (!confirmLeave) return
-    await apiClient.post(`/restaurant/reviews/${confirmLeave.id}/leave`, {})
+    await apiClient.post(`/review/${confirmLeave.id}/leave`, {})
     setConfirmLeave(null)
     fetchData()
   }
@@ -279,7 +279,7 @@ export default function RestaurantDetailScreen() {
     food_items: FoodItemEntry[]
   }) => {
     // Update restaurant review
-    await apiClient.put('/restaurant/reviews', {
+    await apiClient.put('/review', {
       review_id: editingReview!.review_id,
       cleanliness_rating: data.cleanliness_rating,
       experience_rating: data.experience_rating,
@@ -300,7 +300,7 @@ export default function RestaurantDetailScreen() {
       if (item.food_review_id) {
         // Update existing food review
         updatedFoodIds.add(item.food_review_id)
-        await apiClient.put('/restaurant/reviews/food', {
+        await apiClient.put('/review/food', {
           food_review_id: item.food_review_id,
           food_name: item.food_name,
           price: item.price,
@@ -310,7 +310,7 @@ export default function RestaurantDetailScreen() {
         })
       } else {
         // Create new food review
-        await apiClient.post('/restaurant/reviews/food', {
+        await apiClient.post('/review/food', {
           restaurant_id: id,
           food_name: item.food_name,
           price: item.price,
@@ -324,7 +324,7 @@ export default function RestaurantDetailScreen() {
     // Delete food reviews that were removed
     for (const oldId of existingFoodIds) {
       if (!updatedFoodIds.has(oldId)) {
-        await apiClient.delete(`/restaurant/reviews/food/${oldId}`)
+        await apiClient.delete(`/review/food/${oldId}`)
       }
     }
 

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
 import { Platform } from 'react-native'
 import { useColorScheme } from 'react-native'
 
@@ -34,7 +34,11 @@ const ThemeContext = createContext<ThemeContextValue | null>(null)
 
 export function AppThemeProvider({ children }: { children: ReactNode }) {
   const systemScheme = useColorScheme()
-  const [mode, setModeState] = useState<ThemeMode>(() => loadMode(systemScheme))
+  const [mode, setModeState] = useState<ThemeMode | null>(null)
+
+  useEffect(() => {
+    setModeState((prev) => prev ?? loadMode(systemScheme))
+  }, [systemScheme])
 
   const setMode = useCallback((m: ThemeMode) => {
     setModeState(m)
@@ -48,6 +52,8 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
       return next
     })
   }, [])
+
+  if (mode === null) return null
 
   return (
     <ThemeContext.Provider value={{ mode, setMode, toggleMode }}>

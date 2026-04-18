@@ -85,8 +85,8 @@ export default function RestaurantsScreen() {
     setError(null)
     Promise.all([
       apiClient.get<{ restaurants: Restaurant[] }>('/restaurant'),
-      apiClient.get<{ entries: ListEntry[] }>('/restaurant/visited/me'),
-      apiClient.get<{ entries: ListEntry[] }>('/restaurant/wishlist/me'),
+      apiClient.get<{ entries: ListEntry[] }>('/visited/me'),
+      apiClient.get<{ entries: ListEntry[] }>('/wishlist/me'),
     ])
       .then(([restaurantsData, visitedData, wishlistData]) => {
         setRestaurants(restaurantsData.restaurants)
@@ -99,7 +99,7 @@ export default function RestaurantsScreen() {
           const params = new URLSearchParams()
           allIds.forEach((id: string) => params.append('restaurant_ids', id))
           apiClient
-            .get<{ stats: FoodReviewStatsEntry[] }>(`/restaurant/food-review-stats?${params.toString()}`)
+            .get<{ stats: FoodReviewStatsEntry[] }>(`/review/food-review-stats?${params.toString()}`)
             .then((statsData) => {
               const map: Record<string, FoodReviewStatsEntry> = {}
               statsData.stats.forEach((s) => { map[s.restaurant_id] = s })
@@ -193,7 +193,7 @@ export default function RestaurantsScreen() {
       '/restaurant',
       { google_place_id: googlePlaceId, cuisine_type: cuisineType },
     )
-    await apiClient.post('/restaurant/wishlist', {
+    await apiClient.post('/wishlist', {
       restaurant_id: res.restaurant_id,
       ...(comment ? { comment } : {}),
     })
@@ -203,7 +203,7 @@ export default function RestaurantsScreen() {
     if (!editCommentRestaurantId) return
     const entry = wishlistByRestaurantId[editCommentRestaurantId]
     if (!entry) return
-    await apiClient.put('/restaurant/wishlist', {
+    await apiClient.put('/wishlist', {
       entry_id: entry.entry_id,
       comment: comment || null,
     })
@@ -216,13 +216,13 @@ export default function RestaurantsScreen() {
       '/restaurant',
       { google_place_id: googlePlaceId, cuisine_type: cuisineType },
     )
-    await apiClient.post('/restaurant/visited', {
+    await apiClient.post('/visited', {
       restaurant_id: res.restaurant_id,
     })
   }
 
   const handleAddVisitedFromWishlist = async (restaurantId: string) => {
-    await apiClient.post('/restaurant/visited/from-wishlist', {
+    await apiClient.post('/visited/from-wishlist', {
       restaurant_id: restaurantId,
     })
   }
@@ -238,8 +238,8 @@ export default function RestaurantsScreen() {
     setDeleteConfirmId(null)
     if (!entry) return
     const path = activeTab === 'visited'
-      ? `/restaurant/visited/${entry.entry_id}`
-      : `/restaurant/wishlist/${entry.entry_id}`
+      ? `/visited/${entry.entry_id}`
+      : `/wishlist/${entry.entry_id}`
     await apiClient.delete(path)
     fetchAllData()
   }
