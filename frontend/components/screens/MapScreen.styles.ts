@@ -29,10 +29,15 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
+  legendItemInactive: {
+    opacity: 0.4,
+  },
   dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   legendText: {
     color: '#fff',
