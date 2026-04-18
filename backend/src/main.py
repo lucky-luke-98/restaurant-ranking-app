@@ -6,11 +6,10 @@ from fastapi.responses import JSONResponse
 from loguru import logger
 from slowapi.errors import RateLimitExceeded
 
-from src.utils.logger import configure_logger
-configure_logger()
 from src.config import settings
+from src.utils.logger import configure_logger
 from src.users import user_router
-from src.restaurants import restaurant_router
+from src.restaurants.controllers import *
 from src.utils.rate_limit import limiter
 from src.db.mongo_client import initialize_mongo_client, close_mongo_client
 
@@ -18,6 +17,7 @@ from src.db.mongo_client import initialize_mongo_client, close_mongo_client
 @asynccontextmanager
 async def lifespan(app: FastAPI):
 
+    configure_logger()
     logger.info("Starting up the backend application ...")
     initialize_mongo_client()
     logger.info("Backend app start up complete.")
@@ -50,6 +50,9 @@ app.add_middleware(
 
 app.include_router(user_router, prefix="/users")
 app.include_router(restaurant_router, prefix="/restaurant")
+app.include_router(review_router, prefix="/review")
+app.include_router(visited_router, prefix="/visited")
+app.include_router(wishlist_router, prefix="/wishlist")
 
 
 @app.get("/", tags=["home"])

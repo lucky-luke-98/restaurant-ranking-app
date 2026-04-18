@@ -44,4 +44,9 @@ class Settings(BaseSettings):
         description="Maximum character length for restaurant review and food review comments.",
     )
 
+    # code-variables
+    g_places_details_url: str = Field("https://places.googleapis.com/v1/places", description="The google places url to fetch details from.")
+    g_places_autocomplete_url: str = Field("https://places.googleapis.com/v1/places:autocomplete", description="The google places url to fetch places information (autocompletion).")
+    max_image_bytes: int = Field(12_000_000, description="The maximum image bytes to store a review image. Limitation by storage with base64 and mongo.")
+
 settings = Settings()
