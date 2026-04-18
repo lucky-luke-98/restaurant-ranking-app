@@ -141,17 +141,16 @@ export default function ReviewCard({ review, foodReviews, isOwn, isCoauthor, ima
           showsHorizontalScrollIndicator={false}
           style={styles.imageRow}
         >
-          {review.images.map((img) => (
-            <ImageViewer
-              key={img.image_id}
-              uri={`data:${img.content_type};base64,${img.data}`}
-            >
-              <Image
-                source={{ uri: `data:${img.content_type};base64,${img.data}` }}
-                style={styles.image}
-              />
-            </ImageViewer>
-          ))}
+          {(() => {
+            const uris = review.images.map(
+              (img) => `data:${img.content_type};base64,${img.data}`,
+            )
+            return review.images.map((img, i) => (
+              <ImageViewer key={img.image_id} uris={uris} index={i}>
+                <Image source={{ uri: uris[i] }} style={styles.image} />
+              </ImageViewer>
+            ))
+          })()}
         </ScrollView>
       ) : imagesLoading ? (
         <View style={styles.imagePlaceholder}>
