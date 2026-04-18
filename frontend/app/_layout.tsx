@@ -2,7 +2,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { useFonts } from 'expo-font';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { useEffect, useMemo } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import 'react-native-reanimated';
@@ -58,6 +58,13 @@ function AuthGate() {
 function ThemedApp() {
   const { mode } = useAppTheme();
   const colors = useThemeColors();
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const root = document.documentElement;
+    root.style.setProperty('--autofill-bg', colors.backgroundElevated);
+    root.style.setProperty('--autofill-text', colors.text);
+  }, [colors.backgroundElevated, colors.text]);
 
   const navTheme = useMemo(() => {
     const base = mode === 'dark' ? DarkTheme : DefaultTheme;

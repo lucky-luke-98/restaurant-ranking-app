@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import {
   View,
   Text,
@@ -8,13 +8,21 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  LayoutAnimation,
+  StyleSheet,
+  UIManager,
 } from 'react-native'
+import { LinearGradient } from 'expo-linear-gradient'
 import { ForkKnifeIcon, EnvelopeIcon, LockIcon, UserIcon, SignInIcon, UserPlusIcon, EyeIcon, EyeSlashIcon } from 'phosphor-react-native'
 import { useAuth } from '@/services/AuthContext'
 import { useTranslation } from '@/services/LanguageContext'
 import { ApiError } from '@/services/apiClient'
 import { useThemeColors } from '@/hooks/useThemeColors'
 import { createStyles } from './AuthScreen.styles'
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true)
+}
 
 export default function AuthScreen() {
   const { login, register } = useAuth()
@@ -30,7 +38,12 @@ export default function AuthScreen() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const lastNameRef = useRef<TextInput>(null)
+  const mailRef = useRef<TextInput>(null)
+  const passwordRef = useRef<TextInput>(null)
+
   const handleSubmit = async () => {
+    if (!canSubmit || loading) return
     setError(null)
     setLoading(true)
     try {
@@ -54,6 +67,12 @@ export default function AuthScreen() {
     }
   }
 
+  const toggleMode = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.create(220, 'easeInEaseOut', 'opacity'))
+    setIsRegister(!isRegister)
+    setError(null)
+  }
+
   const canSubmit = isRegister
     ? firstName.trim() && lastName.trim() && mail.trim() && password.length >= 6
     : mail.trim() && password
@@ -63,9 +82,18 @@ export default function AuthScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      <LinearGradient
+        colors={[colors.gradientTop, colors.gradientMid, colors.gradientBottom]}
+        locations={[0, 0.45, 1]}
+        style={StyleSheet.absoluteFill}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        pointerEvents="none"
+      />
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        <ForkKnifeIcon size={64} color={colors.text} weight="duotone" style={styles.logo} />
+        <ForkKnifeIcon size={88} color={colors.text} weight="duotone" style={styles.logo} />
         <Text style={styles.title}>{t.appName}</Text>
+        <Text style={styles.tagline}>{t.authTagline}</Text>
         <Text style={styles.subtitle}>{isRegister ? t.authCreateAccount : t.authSignIn}</Text>
 
         {isRegister && (
@@ -79,17 +107,28 @@ export default function AuthScreen() {
                 value={firstName}
                 onChangeText={setFirstName}
                 autoCapitalize="words"
+                autoComplete="given-name"
+                textContentType="givenName"
+                returnKeyType="next"
+                submitBehavior="submit"
+                onSubmitEditing={() => lastNameRef.current?.focus()}
               />
             </View>
             <View style={styles.inputRow}>
               <UserIcon size={20} color={colors.textFaint} style={styles.inputIcon} />
               <TextInput
+                ref={lastNameRef}
                 style={styles.input}
                 placeholder={t.authLastName}
                 placeholderTextColor={colors.textPlaceholder}
                 value={lastName}
                 onChangeText={setLastName}
                 autoCapitalize="words"
+                autoComplete="family-name"
+                textContentType="familyName"
+                returnKeyType="next"
+                submitBehavior="submit"
+                onSubmitEditing={() => mailRef.current?.focus()}
               />
             </View>
           </>
@@ -98,24 +137,38 @@ export default function AuthScreen() {
         <View style={styles.inputRow}>
           <EnvelopeIcon size={20} color={colors.textFaint} style={styles.inputIcon} />
           <TextInput
+            ref={mailRef}
             style={styles.input}
             placeholder={t.authEmail}
             placeholderTextColor={colors.textPlaceholder}
             value={mail}
             onChangeText={setMail}
             autoCapitalize="none"
+            autoCorrect={false}
             keyboardType="email-address"
+            autoComplete="email"
+            textContentType="username"
+            returnKeyType="next"
+            submitBehavior="submit"
+            onSubmitEditing={() => passwordRef.current?.focus()}
           />
         </View>
         <View style={styles.inputRow}>
           <LockIcon size={20} color={colors.textFaint} style={styles.inputIcon} />
           <TextInput
+            ref={passwordRef}
             style={styles.input}
             placeholder={t.authPassword}
             placeholderTextColor={colors.textPlaceholder}
             value={password}
             onChangeText={setPassword}
             secureTextEntry={!showPassword}
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete={isRegister ? 'new-password' : 'current-password'}
+            textContentType={isRegister ? 'newPassword' : 'password'}
+            returnKeyType="go"
+            onSubmitEditing={handleSubmit}
           />
           <Pressable onPress={() => setShowPassword(!showPassword)} hitSlop={8}>
             {showPassword ? (
@@ -147,7 +200,7 @@ export default function AuthScreen() {
           )}
         </Pressable>
 
-        <Pressable onPress={() => { setIsRegister(!isRegister); setError(null) }}>
+        <Pressable onPress={toggleMode}>
           <Text style={styles.switchText}>
             {isRegister ? t.authAlreadyHaveAccount : t.authNoAccount}
           </Text>

@@ -12,14 +12,22 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   logo: {
     alignSelf: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   title: {
     color: colors.text,
     fontSize: 42,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
+  },
+  tagline: {
+    color: colors.textMuted,
+    fontSize: 15,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginBottom: 20,
+    paddingHorizontal: 16,
   },
   subtitle: {
     color: colors.textTertiary,

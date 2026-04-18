@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
 import { Platform } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
-import apiClient, { setAccessToken } from './apiClient'
+import apiClient, { ApiError, setAccessToken } from './apiClient'
 
 interface User {
   user_id: string
@@ -30,7 +30,7 @@ const TOKEN_KEY = 'access_token'
 async function saveToken(token: string) {
   setAccessToken(token)
   if (Platform.OS === 'web') {
-    document.cookie = `${TOKEN_KEY}=${token}; path=/; max-age=${60 * 60 * 24}; SameSite=Strict; Secure`
+    window.localStorage.setItem(TOKEN_KEY, token)
   } else {
     await SecureStore.setItemAsync(TOKEN_KEY, token)
   }
@@ -38,8 +38,7 @@ async function saveToken(token: string) {
 
 async function loadToken(): Promise<string | null> {
   if (Platform.OS === 'web') {
-    const match = document.cookie.match(new RegExp(`(?:^|; )${TOKEN_KEY}=([^;]*)`))
-    return match ? match[1] : null
+    return window.localStorage.getItem(TOKEN_KEY)
   }
   return SecureStore.getItemAsync(TOKEN_KEY)
 }
@@ -47,7 +46,7 @@ async function loadToken(): Promise<string | null> {
 async function clearToken() {
   setAccessToken(null)
   if (Platform.OS === 'web') {
-    document.cookie = `${TOKEN_KEY}=; path=/; max-age=0`
+    window.localStorage.removeItem(TOKEN_KEY)
   } else {
     await SecureStore.deleteItemAsync(TOKEN_KEY)
   }
@@ -66,15 +65,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
     setAccessToken(stored)
-    try {
-      const data = await apiClient.get<User>('/users/me')
-      setUser(data)
-    } catch {
-      await clearToken()
-      setUser(null)
-    } finally {
-      setLoading(false)
+
+    // Retry with backoff to survive Render free-tier cold starts (~30–60s).
+    // Only a real 401/403 clears the token — transient errors keep the session.
+    const backoffsMs = [0, 3000, 8000, 20000]
+    for (let attempt = 0; attempt < backoffsMs.length; attempt++) {
+      if (backoffsMs[attempt] > 0) {
+        await new Promise((r) => setTimeout(r, backoffsMs[attempt]))
+      }
+      try {
+        const data = await apiClient.get<User>('/users/me')
+        setUser(data)
+        setLoading(false)
+        return
+      } catch (err) {
+        if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+          await clearToken()
+          setUser(null)
+          setLoading(false)
+          return
+        }
+      }
     }
+    // Backend unreachable — keep token so next reload can re-verify.
+    setLoading(false)
   }, [])
 
   useEffect(() => {
