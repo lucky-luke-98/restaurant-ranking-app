@@ -16,6 +16,7 @@ const de: Translations = {
   // Auth
   authSignIn: 'Anmelden',
   authCreateAccount: 'Konto erstellen',
+  authTagline: 'Hunger? Frag dein fr\u00FCheres Ich \u2014 es hat Erfahrungen gesammelt.',
   authFirstName: 'Vorname',
   authLastName: 'Nachname',
   authEmail: 'E-Mail',
@@ -178,11 +179,18 @@ const de: Translations = {
 
   // Friends
   friends: 'Freunde',
-  searchFriends: 'Benutzer suchen...',
+  searchFriends: 'Nach Name oder E-Mail suchen...',
   addFriend: 'Hinzufügen',
   removeFriend: 'Entfernen',
   noFriendsYet: 'Noch keine Freunde.',
+  noFriendsHint: 'Tippe auf +, um Personen zu finden.',
   noUsersFound: 'Keine Benutzer gefunden.',
+  addFriendTitle: 'Freund hinzufügen',
+  searchToStart: 'Beginne zu tippen, um zu suchen.',
+  preferences: 'Einstellungen',
+  account: 'Konto',
+  editAvatar: 'Foto ändern',
+  chooseLanguage: 'Sprache wählen',
 
   // Coauthors
   coauthors: 'Co-Autoren',

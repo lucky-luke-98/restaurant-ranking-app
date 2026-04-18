@@ -14,6 +14,7 @@ const en = {
   // Auth
   authSignIn: 'Sign In',
   authCreateAccount: 'Create Account',
+  authTagline: 'Hungry? Ask past you — they\u2019ve been around.',
   authFirstName: 'First Name',
   authLastName: 'Last Name',
   authEmail: 'Email',
@@ -176,11 +177,18 @@ const en = {
 
   // Friends
   friends: 'Friends',
-  searchFriends: 'Search users...',
+  searchFriends: 'Search by name or email...',
   addFriend: 'Add',
   removeFriend: 'Remove',
   noFriendsYet: 'No friends yet.',
+  noFriendsHint: 'Tap + to find people you know.',
   noUsersFound: 'No users found.',
+  addFriendTitle: 'Add a friend',
+  searchToStart: 'Start typing to search.',
+  preferences: 'Preferences',
+  account: 'Account',
+  editAvatar: 'Change photo',
+  chooseLanguage: 'Choose language',
 
   // Coauthors
   coauthors: 'Co-authors',
