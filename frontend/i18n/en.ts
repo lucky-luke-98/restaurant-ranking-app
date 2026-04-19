@@ -39,6 +39,7 @@ const en = {
   navMap: 'Map',
   navRestaurant: 'Restaurant',
   navProfile: 'Profile',
+  navFeed: 'Feed',
 
   // Restaurants
   tabVisited: 'Visited',
@@ -63,7 +64,7 @@ const en = {
   // Restaurant Detail
   restaurantsSlash: (name: string) => `Restaurants / ${name}`,
   sectionReviews: 'Reviews',
-  emptyReviews: 'No reviews yet.',
+  emptyReviews: 'No food reviews yet.',
   restaurantNotFound: 'Restaurant not found.',
   confirmDeleteReview: 'Delete this review?',
 
@@ -185,10 +186,27 @@ const en = {
   noUsersFound: 'No users found.',
   addFriendTitle: 'Add a friend',
   searchToStart: 'Start typing to search.',
+  friendRequested: 'Requested',
+  friendAccept: 'Accept',
+  friendDecline: 'Decline',
+  friendRequestsTitle: 'Friend Requests',
   preferences: 'Preferences',
   account: 'Account',
   editAvatar: 'Change photo',
   chooseLanguage: 'Choose language',
+
+  // Feed
+  feedTitle: 'Friends feed',
+  feedEmptyNoFriends: 'Add friends to see their reviews here.',
+  feedEmptyNoReviews: 'No reviews from friends yet.',
+  feedEndReached: "You're all caught up.",
+  visitedBy: (name: string, when: string) => `${name} visited \u00B7 ${when}`,
+  visitedByNoTime: (name: string) => `${name} visited`,
+  timeNow: 'just now',
+  timeMinutes: (n: number) => `${n}m ago`,
+  timeHours: (n: number) => `${n}h ago`,
+  timeDays: (n: number) => `${n}d ago`,
+  alreadyOnWishlist: 'Already on your wishlist',
 
   // Coauthors
   coauthors: 'Co-authors',

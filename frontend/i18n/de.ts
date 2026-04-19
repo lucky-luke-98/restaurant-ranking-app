@@ -41,6 +41,7 @@ const de: Translations = {
   navMap: 'Karte',
   navRestaurant: 'Restaurant',
   navProfile: 'Profil',
+  navFeed: 'Feed',
 
   // Restaurants
   tabVisited: 'Besucht',
@@ -65,7 +66,7 @@ const de: Translations = {
   // Restaurant Detail
   restaurantsSlash: (name: string) => `Restaurants / ${name}`,
   sectionReviews: 'Bewertungen',
-  emptyReviews: 'Noch keine Bewertungen.',
+  emptyReviews: 'Noch keine Essens-Bewertungen.',
   restaurantNotFound: 'Restaurant nicht gefunden.',
   confirmDeleteReview: 'Diese Bewertung l\u00F6schen?',
 
@@ -187,10 +188,27 @@ const de: Translations = {
   noUsersFound: 'Keine Benutzer gefunden.',
   addFriendTitle: 'Freund hinzufügen',
   searchToStart: 'Beginne zu tippen, um zu suchen.',
+  friendRequested: 'Angefragt',
+  friendAccept: 'Annehmen',
+  friendDecline: 'Ablehnen',
+  friendRequestsTitle: 'Freundschaftsanfragen',
   preferences: 'Einstellungen',
   account: 'Konto',
   editAvatar: 'Foto ändern',
   chooseLanguage: 'Sprache wählen',
+
+  // Feed
+  feedTitle: 'Freunde-Feed',
+  feedEmptyNoFriends: 'F\u00FCge Freunde hinzu, um ihre Bewertungen hier zu sehen.',
+  feedEmptyNoReviews: 'Noch keine Bewertungen von Freunden.',
+  feedEndReached: 'Du bist auf dem neuesten Stand.',
+  visitedBy: (name: string, when: string) => `${name} war hier \u00B7 ${when}`,
+  visitedByNoTime: (name: string) => `${name} war hier`,
+  timeNow: 'gerade eben',
+  timeMinutes: (n: number) => `vor ${n} Min.`,
+  timeHours: (n: number) => `vor ${n} Std.`,
+  timeDays: (n: number) => `vor ${n} T.`,
+  alreadyOnWishlist: 'Bereits auf deiner Wunschliste',
 
   // Coauthors
   coauthors: 'Co-Autoren',
