@@ -281,6 +281,33 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
     borderRadius: 8,
     backgroundColor: colors.errorBackground,
   },
+  requestsCountBadge: {
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 6,
+    borderRadius: 10,
+    backgroundColor: colors.error,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  requestsCountBadgeText: {
+    color: colors.background,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  requestAcceptButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: colors.text,
+  },
+  requestDeclineButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: colors.errorBackground,
+  },
+  requestButtonDisabled: {
+    opacity: 0.5,
+  },
   adminCard: {
     backgroundColor: colors.backgroundCard,
     borderRadius: 12,

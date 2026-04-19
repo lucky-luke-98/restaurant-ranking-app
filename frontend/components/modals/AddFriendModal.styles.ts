@@ -120,4 +120,12 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  requestedButton: {
+    backgroundColor: colors.backgroundButton,
+  },
+  requestedButtonText: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+  },
 })

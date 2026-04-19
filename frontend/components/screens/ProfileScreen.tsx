@@ -17,6 +17,7 @@ import {
 import { useTranslation, type Language } from '@/services/LanguageContext'
 import { useAppTheme, type ThemeMode } from '@/services/ThemeContext'
 import { useAuth } from '@/services/AuthContext'
+import { useFriends } from '@/services/FriendsContext'
 import { useThemeColors } from '@/hooks/useThemeColors'
 import apiClient from '@/services/apiClient'
 import ConfirmModal from '@/components/modals/ConfirmModal'
@@ -30,13 +31,6 @@ interface AdminUser {
   mail: string
   role: string
   last_logged_in?: string
-}
-
-interface FriendUser {
-  user_id: string
-  first_name: string
-  last_name: string
-  avatar?: string
 }
 
 type ProfileTab = 'settings' | 'admin'
@@ -82,28 +76,17 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false)
   const [addFriendVisible, setAddFriendVisible] = useState(false)
   const [languagePickerVisible, setLanguagePickerVisible] = useState(false)
+  const [requestBusyId, setRequestBusyId] = useState<string | null>(null)
 
-  const [friends, setFriends] = useState<FriendUser[]>([])
-  const [friendsLoading, setFriendsLoading] = useState(true)
-
-  const friendIds = useMemo(() => new Set(friends.map((f) => f.user_id)), [friends])
-
-  const fetchFriends = useCallback(async () => {
-    setFriendsLoading(true)
-    try {
-      const data = await apiClient.get<{ friends: FriendUser[] }>('/users/friends')
-      setFriends(data.friends)
-    } catch {
-      // ignore
-    } finally {
-      setFriendsLoading(false)
-      setRefreshing(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchFriends()
-  }, [fetchFriends])
+  const {
+    friends,
+    incomingRequests,
+    loading: friendsLoading,
+    refresh: refreshFriends,
+    acceptRequest,
+    declineRequest,
+    removeFriend: removeFriendAction,
+  } = useFriends()
 
   const fetchUsers = useCallback(async () => {
     setAdminLoading(true)
@@ -123,8 +106,25 @@ export default function ProfileScreen() {
   }, [isAdmin, activeTab, fetchUsers])
 
   const handleRemoveFriend = async (friendUserId: string) => {
-    await apiClient.delete(`/users/friends/${friendUserId}`)
-    fetchFriends()
+    await removeFriendAction(friendUserId)
+  }
+
+  const handleAcceptRequest = async (userId: string) => {
+    setRequestBusyId(userId)
+    try {
+      await acceptRequest(userId)
+    } finally {
+      setRequestBusyId(null)
+    }
+  }
+
+  const handleDeclineRequest = async (userId: string) => {
+    setRequestBusyId(userId)
+    try {
+      await declineRequest(userId)
+    } finally {
+      setRequestBusyId(null)
+    }
   }
 
   const pickAvatar = async () => {
@@ -180,6 +180,57 @@ export default function ProfileScreen() {
 
   const renderSettingsTab = () => (
     <>
+      {incomingRequests.length > 0 && (
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>{t.friendRequestsTitle}</Text>
+            <View style={styles.requestsCountBadge}>
+              <Text style={styles.requestsCountBadgeText}>{incomingRequests.length}</Text>
+            </View>
+          </View>
+          <View style={styles.friendsList}>
+            {incomingRequests.map((u) => {
+              const busy = requestBusyId === u.user_id
+              return (
+                <View key={u.user_id} style={styles.friendRow}>
+                  {u.avatar ? (
+                    <Image
+                      source={{ uri: `data:image/jpeg;base64,${u.avatar}` }}
+                      style={styles.friendAvatar}
+                    />
+                  ) : (
+                    <View style={styles.friendAvatarFallback}>
+                      <Text style={styles.friendAvatarText}>
+                        {u.first_name[0]}{u.last_name[0]}
+                      </Text>
+                    </View>
+                  )}
+                  <Text style={styles.friendName} numberOfLines={1}>
+                    {u.first_name} {u.last_name}
+                  </Text>
+                  <Pressable
+                    style={[styles.requestAcceptButton, busy && styles.requestButtonDisabled]}
+                    onPress={() => handleAcceptRequest(u.user_id)}
+                    disabled={busy}
+                    accessibilityLabel={t.friendAccept}
+                  >
+                    <CheckIcon size={14} color={colors.background} weight="bold" />
+                  </Pressable>
+                  <Pressable
+                    style={[styles.requestDeclineButton, busy && styles.requestButtonDisabled]}
+                    onPress={() => handleDeclineRequest(u.user_id)}
+                    disabled={busy}
+                    accessibilityLabel={t.friendDecline}
+                  >
+                    <XIcon size={14} color={colors.error} weight="bold" />
+                  </Pressable>
+                </View>
+              )
+            })}
+          </View>
+        </View>
+      )}
+
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{t.friends}</Text>
@@ -353,7 +404,12 @@ export default function ProfileScreen() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={() => { setRefreshing(true); fetchFriends(); if (isAdmin && activeTab === 'admin') fetchUsers() }}
+            onRefresh={async () => {
+              setRefreshing(true)
+              await refreshFriends()
+              if (isAdmin && activeTab === 'admin') await fetchUsers()
+              setRefreshing(false)
+            }}
             tintColor={colors.text}
           />
         }
@@ -395,9 +451,7 @@ export default function ProfileScreen() {
 
       <AddFriendModal
         visible={addFriendVisible}
-        existingFriendIds={friendIds}
         onClose={() => setAddFriendVisible(false)}
-        onFriendAdded={fetchFriends}
       />
 
       <Modal

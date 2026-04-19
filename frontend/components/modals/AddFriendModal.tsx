@@ -15,47 +15,55 @@ import {
   MagnifyingGlassIcon,
   XIcon,
   PlusIcon,
+  CheckIcon,
   UsersThreeIcon,
 } from 'phosphor-react-native'
 import { useTranslation } from '@/services/LanguageContext'
 import { useThemeColors } from '@/hooks/useThemeColors'
+import { useFriends, type FriendUser } from '@/services/FriendsContext'
 import apiClient from '@/services/apiClient'
 import { createStyles } from './AddFriendModal.styles'
 
-interface FriendUser {
-  user_id: string
-  first_name: string
-  last_name: string
-  avatar?: string
-}
-
 interface AddFriendModalProps {
   visible: boolean
-  existingFriendIds: Set<string>
   onClose: () => void
-  onFriendAdded: () => void
 }
 
-export default function AddFriendModal({
-  visible,
-  existingFriendIds,
-  onClose,
-  onFriendAdded,
-}: AddFriendModalProps) {
+type RowState = 'none' | 'requested' | 'incoming' | 'loading'
+
+export default function AddFriendModal({ visible, onClose }: AddFriendModalProps) {
   const { t } = useTranslation()
   const colors = useThemeColors()
   const styles = useMemo(() => createStyles(colors), [colors])
+  const {
+    friends,
+    incomingRequests,
+    outgoingRequests,
+    sendRequest,
+    acceptRequest,
+    cancelRequest,
+  } = useFriends()
 
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<FriendUser[]>([])
   const [searching, setSearching] = useState(false)
-  const [adding, setAdding] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
+
+  const friendIds = useMemo(() => new Set(friends.map((f) => f.user_id)), [friends])
+  const incomingIds = useMemo(
+    () => new Set(incomingRequests.map((u) => u.user_id)),
+    [incomingRequests],
+  )
+  const outgoingIds = useMemo(
+    () => new Set(outgoingRequests.map((u) => u.user_id)),
+    [outgoingRequests],
+  )
 
   useEffect(() => {
     if (!visible) {
       setQuery('')
       setResults([])
-      setAdding(null)
+      setBusyId(null)
     }
   }, [visible])
 
@@ -71,7 +79,7 @@ export default function AddFriendModal({
           '/users/search',
           { params: { query: query.trim() } },
         )
-        setResults(data.users.filter((u) => !existingFriendIds.has(u.user_id)))
+        setResults(data.users.filter((u) => !friendIds.has(u.user_id)))
       } catch {
         setResults([])
       } finally {
@@ -79,18 +87,45 @@ export default function AddFriendModal({
       }
     }, 300)
     return () => clearTimeout(timer)
-  }, [query, existingFriendIds])
+  }, [query, friendIds])
 
-  const handleAdd = async (userId: string) => {
-    setAdding(userId)
+  const rowStateFor = (userId: string): RowState => {
+    if (busyId === userId) return 'loading'
+    if (outgoingIds.has(userId)) return 'requested'
+    if (incomingIds.has(userId)) return 'incoming'
+    return 'none'
+  }
+
+  const handleSend = async (userId: string) => {
+    setBusyId(userId)
     try {
-      await apiClient.post('/users/friends', { friend_user_id: userId })
-      setResults((prev) => prev.filter((u) => u.user_id !== userId))
-      onFriendAdded()
+      await sendRequest(userId)
     } catch {
       // silently fail
     } finally {
-      setAdding(null)
+      setBusyId(null)
+    }
+  }
+
+  const handleAccept = async (userId: string) => {
+    setBusyId(userId)
+    try {
+      await acceptRequest(userId)
+    } catch {
+      // silently fail
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const handleCancel = async (userId: string) => {
+    setBusyId(userId)
+    try {
+      await cancelRequest(userId)
+    } catch {
+      // silently fail
+    } finally {
+      setBusyId(null)
     }
   }
 
@@ -154,39 +189,64 @@ export default function AddFriendModal({
               </View>
             )}
 
-            {results.map((u) => (
-              <View key={u.user_id} style={styles.row}>
-                {u.avatar ? (
-                  <Image
-                    source={{ uri: `data:image/jpeg;base64,${u.avatar}` }}
-                    style={styles.avatar}
-                  />
-                ) : (
-                  <View style={styles.avatarFallback}>
-                    <Text style={styles.avatarText}>
-                      {u.first_name[0]}{u.last_name[0]}
-                    </Text>
-                  </View>
-                )}
-                <Text style={styles.name} numberOfLines={1}>
-                  {u.first_name} {u.last_name}
-                </Text>
-                <Pressable
-                  style={[styles.addButton, adding === u.user_id && styles.addButtonDisabled]}
-                  onPress={() => handleAdd(u.user_id)}
-                  disabled={adding === u.user_id}
-                >
-                  {adding === u.user_id ? (
-                    <ActivityIndicator size={14} color={colors.background} />
+            {results.map((u) => {
+              const state = rowStateFor(u.user_id)
+              return (
+                <View key={u.user_id} style={styles.row}>
+                  {u.avatar ? (
+                    <Image
+                      source={{ uri: `data:image/jpeg;base64,${u.avatar}` }}
+                      style={styles.avatar}
+                    />
                   ) : (
-                    <>
+                    <View style={styles.avatarFallback}>
+                      <Text style={styles.avatarText}>
+                        {u.first_name[0]}{u.last_name[0]}
+                      </Text>
+                    </View>
+                  )}
+                  <Text style={styles.name} numberOfLines={1}>
+                    {u.first_name} {u.last_name}
+                  </Text>
+
+                  {state === 'loading' && (
+                    <View style={[styles.addButton, styles.addButtonDisabled]}>
+                      <ActivityIndicator size={14} color={colors.background} />
+                    </View>
+                  )}
+
+                  {state === 'requested' && (
+                    <Pressable
+                      style={[styles.addButton, styles.requestedButton]}
+                      onPress={() => handleCancel(u.user_id)}
+                    >
+                      <CheckIcon size={14} color={colors.textMuted} weight="bold" />
+                      <Text style={styles.requestedButtonText}>{t.friendRequested}</Text>
+                    </Pressable>
+                  )}
+
+                  {state === 'incoming' && (
+                    <Pressable
+                      style={styles.addButton}
+                      onPress={() => handleAccept(u.user_id)}
+                    >
+                      <CheckIcon size={14} color={colors.background} weight="bold" />
+                      <Text style={styles.addButtonText}>{t.friendAccept}</Text>
+                    </Pressable>
+                  )}
+
+                  {state === 'none' && (
+                    <Pressable
+                      style={styles.addButton}
+                      onPress={() => handleSend(u.user_id)}
+                    >
                       <PlusIcon size={14} color={colors.background} weight="bold" />
                       <Text style={styles.addButtonText}>{t.addFriend}</Text>
-                    </>
+                    </Pressable>
                   )}
-                </Pressable>
-              </View>
-            ))}
+                </View>
+              )
+            })}
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
