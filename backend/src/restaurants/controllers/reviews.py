@@ -24,6 +24,7 @@ from src.restaurants.models import (
     GetFoodReviewStatsResponse,
     FoodReviewStatsEntry,
     LeaveReviewResponse,
+    GetFriendsFeedResponse,
 )
 from src.restaurants.services.reviews_srv import (
     create_one_restaurant_review,
@@ -41,6 +42,7 @@ from src.restaurants.services.reviews_srv import (
     get_images_by_review,
     get_images_by_food_review,
     get_food_review_stats,
+    get_friends_feed,
 )
 from src.utils.auth import get_current_user, enforce_owner, enforce_owner_or_coauthor
 
@@ -60,6 +62,37 @@ async def get_food_reviews_stats(
         stats = await to_thread(get_food_review_stats, restaurant_ids=restaurant_ids, user_id=user_id)
         return GetFoodReviewStatsResponse(
             stats=[FoodReviewStatsEntry(**s) for s in stats]
+        )
+    except Exception as exp:
+        raise HTTPException(status_code=500, detail=str(exp))
+
+
+# ==================== friends feed ==================== #
+
+@router.get("/feed/friends")
+async def get_friends_feed_endpoint(
+    cursor: str | None = Query(None),
+    cursor_id: str | None = Query(None),
+    limit: int = Query(20, ge=1, le=50),
+    current_user: dict = Depends(get_current_user),
+) -> GetFriendsFeedResponse:
+    """Endpoint to get a reverse-chronological feed of reviews by the user's friends."""
+    try:
+        user_id = current_user["user_id"]
+        items, has_more = await to_thread(
+            get_friends_feed,
+            user_id=user_id,
+            cursor_created_at=cursor,
+            cursor_review_id=cursor_id,
+            limit=limit,
+        )
+        next_cursor = items[-1]["created_at"] if has_more and items else None
+        next_cursor_id = items[-1]["review_id"] if has_more and items else None
+        return GetFriendsFeedResponse(
+            items=items,
+            next_cursor=next_cursor,
+            next_cursor_id=next_cursor_id,
+            has_more=has_more,
         )
     except Exception as exp:
         raise HTTPException(status_code=500, detail=str(exp))

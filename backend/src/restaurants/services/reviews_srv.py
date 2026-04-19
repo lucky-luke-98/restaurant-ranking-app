@@ -216,6 +216,139 @@ def update_restaurant_review(request: UpdateRestaurantReviewRequest) -> bool:
 
 
 @service
+def get_friends_feed(
+    user_id: str,
+    cursor_created_at: str | None,
+    cursor_review_id: str | None,
+    limit: int = 20,
+) -> tuple[list[dict], bool]:
+    """
+    Returns a reverse-chronological page of reviews authored or coauthored by the
+    user's accepted friends. Excludes reviews where the user is author or coauthor.
+    Uses keyset pagination on (created_at, review_id) for stability under new inserts.
+    """
+    from src.users.services import get_friends
+
+    friends = get_friends(user_id)
+    friend_ids = [f["user_id"] for f in friends]
+    if not friend_ids:
+        return [], False
+
+    reviews_col = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
+    users_col = get_mongo_collection(collection_name=settings.mongo_users_collection)
+    restaurants_col = get_mongo_collection(collection_name=settings.mongo_restaurants_collection)
+
+    query: dict = {
+        "$and": [
+            {"$or": [
+                {"user_id": {"$in": friend_ids}},
+                {"coauthor_ids": {"$in": friend_ids}},
+            ]},
+            {"user_id": {"$ne": user_id}},
+            {"coauthor_ids": {"$ne": user_id}},
+        ]
+    }
+    if cursor_created_at and cursor_review_id:
+        query["$and"].append({"$or": [
+            {"created_at": {"$lt": cursor_created_at}},
+            {"created_at": cursor_created_at, "review_id": {"$lt": cursor_review_id}},
+        ]})
+
+    reviews = list(
+        reviews_col.find(query)
+        .sort([("created_at", -1), ("review_id", -1)])
+        .limit(limit + 1)
+    )
+    has_more = len(reviews) > limit
+    if has_more:
+        reviews = reviews[:limit]
+    if not reviews:
+        return [], False
+
+    user_ids_set = {r["user_id"] for r in reviews}
+    for r in reviews:
+        for cid in r.get("coauthor_ids", []):
+            user_ids_set.add(cid)
+
+    user_map: dict = {}
+    if user_ids_set:
+        users = users_col.find(
+            {"user_id": {"$in": list(user_ids_set)}},
+            {"user_id": 1, "first_name": 1, "avatar": 1},
+        )
+        user_map = {
+            u["user_id"]: {"first_name": u.get("first_name", ""), "avatar": u.get("avatar")}
+            for u in users
+        }
+
+    restaurant_ids = list({r["restaurant_id"] for r in reviews})
+    restaurant_map: dict = {}
+    if restaurant_ids:
+        rlist = restaurants_col.find(
+            {"restaurant_id": {"$in": restaurant_ids}},
+            {
+                "restaurant_id": 1,
+                "name": 1,
+                "cuisine_type": 1,
+                "street": 1,
+                "city": 1,
+                "latitude": 1,
+                "longitude": 1,
+            },
+        )
+        restaurant_map = {
+            r["restaurant_id"]: {
+                "restaurant_id": r["restaurant_id"],
+                "name": r.get("name", ""),
+                "cuisine_type": r.get("cuisine_type"),
+                "street": r.get("street"),
+                "city": r.get("city"),
+                "latitude": r.get("latitude"),
+                "longitude": r.get("longitude"),
+            }
+            for r in rlist
+        }
+
+        food_reviews_col = get_mongo_collection(
+            collection_name=settings.mongo_food_reviews_collection
+        )
+        food_rating_pipeline = [
+            {"$match": {"restaurant_id": {"$in": restaurant_ids}}},
+            {"$group": {
+                "_id": "$restaurant_id",
+                "avg_rating": {"$avg": "$rating"},
+                "count": {"$sum": 1},
+            }},
+        ]
+        for agg in food_reviews_col.aggregate(food_rating_pipeline):
+            rid = agg["_id"]
+            if rid in restaurant_map:
+                restaurant_map[rid]["avg_rating"] = (
+                    round(agg["avg_rating"], 1) if agg["avg_rating"] is not None else None
+                )
+                restaurant_map[rid]["rating_count"] = agg["count"]
+
+    for review in reviews:
+        review.pop("_id", None)
+        info = user_map.get(review["user_id"], {})
+        review["first_name"] = info.get("first_name", "")
+        if info.get("avatar"):
+            review["avatar"] = info["avatar"]
+        if review.get("coauthor_ids"):
+            review["coauthors"] = [
+                {
+                    "user_id": cid,
+                    "first_name": user_map.get(cid, {}).get("first_name", ""),
+                    "avatar": user_map.get(cid, {}).get("avatar"),
+                }
+                for cid in review["coauthor_ids"]
+            ]
+        review["restaurant"] = restaurant_map.get(review["restaurant_id"])
+
+    return reviews, has_more
+
+
+@service
 def get_reviewed_restaurant_ids_by_user(request: GetReviewedRestaurantIdsByUserRequest) -> list[str]:
     """
     Returns distinct restaurant IDs that a user has reviewed.

@@ -18,9 +18,14 @@ from src.users.services import (
     authenticate_user,
     update_user_avatar,
     search_users,
-    add_friend,
+    send_friend_request,
+    accept_friend_request,
+    decline_friend_request,
+    cancel_friend_request,
     remove_friend,
     get_friends,
+    get_incoming_friend_requests,
+    get_outgoing_friend_requests,
 )
 from src.utils.auth import create_access_token, get_current_user, require_admin
 from src.utils.rate_limit import limiter
@@ -123,19 +128,73 @@ async def list_friends(current_user: dict = Depends(get_current_user)) -> dict:
 
 
 @router.post("/friends")
-async def add_friend_endpoint(data: AddFriendRequest, current_user: dict = Depends(get_current_user)):
-    """Add a friend connection."""
+async def send_friend_request_endpoint(data: AddFriendRequest, current_user: dict = Depends(get_current_user)):
+    """Send a friend request. Auto-accepts if the recipient had already requested the sender."""
     try:
-        await to_thread(add_friend, user_id=current_user["user_id"], friend_user_id=data.friend_user_id)
+        status = await to_thread(
+            send_friend_request,
+            user_id=current_user["user_id"],
+            friend_user_id=data.friend_user_id,
+        )
     except ValueError as exp:
         raise HTTPException(status_code=400, detail=str(exp))
-    return {"success": True}
+    return {"success": True, "status": status}
 
 
 @router.delete("/friends/{friend_user_id}")
 async def remove_friend_endpoint(friend_user_id: str, current_user: dict = Depends(get_current_user)):
     """Remove a friend connection."""
     await to_thread(remove_friend, user_id=current_user["user_id"], friend_user_id=friend_user_id)
+    return {"success": True}
+
+
+@router.get("/friends/requests/incoming")
+async def list_incoming_requests(current_user: dict = Depends(get_current_user)) -> dict:
+    """Users who have requested to befriend the current user."""
+    users = await to_thread(get_incoming_friend_requests, user_id=current_user["user_id"])
+    return {"requests": users}
+
+
+@router.get("/friends/requests/outgoing")
+async def list_outgoing_requests(current_user: dict = Depends(get_current_user)) -> dict:
+    """Users the current user has sent pending friend requests to."""
+    users = await to_thread(get_outgoing_friend_requests, user_id=current_user["user_id"])
+    return {"requests": users}
+
+
+@router.post("/friends/requests/{requester_user_id}/accept")
+async def accept_friend_request_endpoint(requester_user_id: str, current_user: dict = Depends(get_current_user)):
+    """Accept an incoming pending friend request."""
+    try:
+        await to_thread(
+            accept_friend_request,
+            user_id=current_user["user_id"],
+            requester_user_id=requester_user_id,
+        )
+    except ValueError as exp:
+        raise HTTPException(status_code=404, detail=str(exp))
+    return {"success": True}
+
+
+@router.post("/friends/requests/{requester_user_id}/decline")
+async def decline_friend_request_endpoint(requester_user_id: str, current_user: dict = Depends(get_current_user)):
+    """Decline an incoming pending friend request."""
+    await to_thread(
+        decline_friend_request,
+        user_id=current_user["user_id"],
+        requester_user_id=requester_user_id,
+    )
+    return {"success": True}
+
+
+@router.delete("/friends/requests/{recipient_user_id}")
+async def cancel_friend_request_endpoint(recipient_user_id: str, current_user: dict = Depends(get_current_user)):
+    """Cancel an outgoing pending friend request."""
+    await to_thread(
+        cancel_friend_request,
+        user_id=current_user["user_id"],
+        recipient_user_id=recipient_user_id,
+    )
     return {"success": True}
 
 

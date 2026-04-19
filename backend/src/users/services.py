@@ -135,9 +135,11 @@ def search_users(query: str, current_user_id: str) -> list[dict]:
 
 
 @service
-def add_friend(user_id: str, friend_user_id: str) -> bool:
+def send_friend_request(user_id: str, friend_user_id: str) -> str:
     """
-    Creates a bidirectional friend connection.
+    Creates a pending friend request from user_id to friend_user_id.
+    Returns "accepted" if a reverse pending request already existed (auto-accept)
+    or a friendship already exists, otherwise returns "requested".
     """
     if user_id == friend_user_id:
         raise ValueError("Cannot add yourself as a friend.")
@@ -145,20 +147,99 @@ def add_friend(user_id: str, friend_user_id: str) -> bool:
         raise ValueError("Friend user not found.")
 
     collection = get_mongo_collection(settings.mongo_friends_collection)
-    existing = collection.find_one({
+
+    existing_accepted = collection.find_one({
         "user_id": user_id, "friend_user_id": friend_user_id,
+        "status": "accepted",
     })
-    if existing:
-        return True
-    collection.insert_one({"user_id": user_id, "friend_user_id": friend_user_id})
-    collection.insert_one({"user_id": friend_user_id, "friend_user_id": user_id})
+    if existing_accepted:
+        return "accepted"
+
+    existing_outgoing = collection.find_one({
+        "user_id": user_id, "friend_user_id": friend_user_id,
+        "status": "pending",
+    })
+    if existing_outgoing:
+        return "requested"
+
+    reverse_pending = collection.find_one({
+        "user_id": friend_user_id, "friend_user_id": user_id,
+        "status": "pending",
+    })
+    if reverse_pending:
+        collection.update_one(
+            {"_id": reverse_pending["_id"]},
+            {"$set": {"status": "accepted"}},
+        )
+        collection.update_one(
+            {"user_id": user_id, "friend_user_id": friend_user_id},
+            {"$set": {"status": "accepted"}},
+            upsert=True,
+        )
+        return "accepted"
+
+    collection.insert_one({
+        "user_id": user_id, "friend_user_id": friend_user_id,
+        "status": "pending",
+    })
+    return "requested"
+
+
+@service
+def accept_friend_request(user_id: str, requester_user_id: str) -> bool:
+    """
+    Accepts a pending request from requester_user_id to user_id.
+    Creates the reverse accepted entry so the friendship is mutual.
+    """
+    collection = get_mongo_collection(settings.mongo_friends_collection)
+    pending = collection.find_one({
+        "user_id": requester_user_id, "friend_user_id": user_id,
+        "status": "pending",
+    })
+    if not pending:
+        raise ValueError("Friend request not found.")
+    collection.update_one(
+        {"_id": pending["_id"]},
+        {"$set": {"status": "accepted"}},
+    )
+    collection.update_one(
+        {"user_id": user_id, "friend_user_id": requester_user_id},
+        {"$set": {"status": "accepted"}},
+        upsert=True,
+    )
+    return True
+
+
+@service
+def decline_friend_request(user_id: str, requester_user_id: str) -> bool:
+    """
+    Declines a pending request from requester_user_id to user_id by deleting it.
+    """
+    collection = get_mongo_collection(settings.mongo_friends_collection)
+    collection.delete_one({
+        "user_id": requester_user_id, "friend_user_id": user_id,
+        "status": "pending",
+    })
+    return True
+
+
+@service
+def cancel_friend_request(user_id: str, recipient_user_id: str) -> bool:
+    """
+    Cancels an outgoing pending request from user_id to recipient_user_id.
+    """
+    collection = get_mongo_collection(settings.mongo_friends_collection)
+    collection.delete_one({
+        "user_id": user_id, "friend_user_id": recipient_user_id,
+        "status": "pending",
+    })
     return True
 
 
 @service
 def remove_friend(user_id: str, friend_user_id: str) -> bool:
     """
-    Removes a bidirectional friend connection.
+    Removes a bidirectional friend connection in any status.
     """
     collection = get_mongo_collection(settings.mongo_friends_collection)
     collection.delete_one({"user_id": user_id, "friend_user_id": friend_user_id})
@@ -169,11 +250,13 @@ def remove_friend(user_id: str, friend_user_id: str) -> bool:
 @service
 def get_friends(user_id: str) -> list[dict]:
     """
-    Returns all friends for a user with their profile info.
+    Returns accepted friends for a user with their profile info.
     """
     friends_collection = get_mongo_collection(settings.mongo_friends_collection)
     users_collection = get_mongo_collection(settings.mongo_users_collection)
-    friend_entries = list(friends_collection.find({"user_id": user_id}))
+    friend_entries = list(friends_collection.find({
+        "user_id": user_id, "status": "accepted",
+    }))
     friend_ids = [f["friend_user_id"] for f in friend_entries]
     if not friend_ids:
         return []
@@ -182,3 +265,57 @@ def get_friends(user_id: str) -> list[dict]:
         {"user_id": 1, "first_name": 1, "last_name": 1, "avatar": 1, "_id": 0},
     ))
     return friends
+
+
+@service
+def get_incoming_friend_requests(user_id: str) -> list[dict]:
+    """
+    Returns users who have sent a pending friend request to user_id.
+    """
+    friends_collection = get_mongo_collection(settings.mongo_friends_collection)
+    users_collection = get_mongo_collection(settings.mongo_users_collection)
+    entries = list(friends_collection.find({
+        "friend_user_id": user_id, "status": "pending",
+    }))
+    requester_ids = [e["user_id"] for e in entries]
+    if not requester_ids:
+        return []
+    users = list(users_collection.find(
+        {"user_id": {"$in": requester_ids}},
+        {"user_id": 1, "first_name": 1, "last_name": 1, "avatar": 1, "_id": 0},
+    ))
+    return users
+
+
+@service
+def get_outgoing_friend_requests(user_id: str) -> list[dict]:
+    """
+    Returns users that user_id has sent a pending friend request to.
+    """
+    friends_collection = get_mongo_collection(settings.mongo_friends_collection)
+    users_collection = get_mongo_collection(settings.mongo_users_collection)
+    entries = list(friends_collection.find({
+        "user_id": user_id, "status": "pending",
+    }))
+    recipient_ids = [e["friend_user_id"] for e in entries]
+    if not recipient_ids:
+        return []
+    users = list(users_collection.find(
+        {"user_id": {"$in": recipient_ids}},
+        {"user_id": 1, "first_name": 1, "last_name": 1, "avatar": 1, "_id": 0},
+    ))
+    return users
+
+
+@service
+def migrate_friends_add_status() -> int:
+    """
+    Back-fills status="accepted" on pre-existing friend docs that predate the
+    request/accept flow. Idempotent.
+    """
+    collection = get_mongo_collection(settings.mongo_friends_collection)
+    result = collection.update_many(
+        {"status": {"$exists": False}},
+        {"$set": {"status": "accepted"}},
+    )
+    return result.modified_count

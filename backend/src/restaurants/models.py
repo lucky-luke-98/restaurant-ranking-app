@@ -259,3 +259,9 @@ class GetFoodReviewStatsResponse(BaseModel):
 
 class DeleteFoodReviewResponse(BaseModel):
     success: bool
+
+class GetFriendsFeedResponse(BaseModel):
+    items: list[dict]
+    next_cursor: str | None = None
+    next_cursor_id: str | None = None
+    has_more: bool
