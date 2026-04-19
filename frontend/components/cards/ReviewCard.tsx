@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { View, Text, Pressable, Image, ScrollView, ActivityIndicator } from 'react-native'
-import { PencilSimpleIcon, TrashIcon, SignOutIcon, CaretDownIcon, CaretUpIcon } from 'phosphor-react-native'
+import { PencilSimpleIcon, TrashIcon, SignOutIcon, CaretDownIcon, CaretUpIcon, CaretRightIcon } from 'phosphor-react-native'
 import ImageViewer from '@/components/viewers/ImageViewer'
 import { useTranslation } from '@/services/LanguageContext'
 import { useThemeColors, useThemeShadows } from '@/hooks/useThemeColors'
@@ -28,6 +28,14 @@ interface FoodReview {
   comment?: string
 }
 
+interface RestaurantContext {
+  restaurant_id: string
+  name: string
+  cuisine_type?: string | null
+  city?: string | null
+  onPress: () => void
+}
+
 interface ReviewCardProps {
   review: {
     review_id: string
@@ -50,6 +58,7 @@ interface ReviewCardProps {
   onEdit: (review: ReviewCardProps['review']) => void
   onDelete: (reviewId: string) => void
   onLeave: (reviewId: string) => void
+  restaurantContext?: RestaurantContext
 }
 
 function ratingColor(value: number): string {
@@ -58,7 +67,7 @@ function ratingColor(value: number): string {
   return '#F44336'
 }
 
-export default function ReviewCard({ review, foodReviews, isOwn, isCoauthor, imagesLoading, onEdit, onDelete, onLeave }: ReviewCardProps) {
+export default function ReviewCard({ review, foodReviews, isOwn, isCoauthor, imagesLoading, onEdit, onDelete, onLeave, restaurantContext }: ReviewCardProps) {
   const { t } = useTranslation()
   const colors = useThemeColors()
   const shadows = useThemeShadows()
@@ -91,6 +100,23 @@ export default function ReviewCard({ review, foodReviews, isOwn, isCoauthor, ima
 
   return (
     <View style={[styles.card, isOwn && styles.ownCard]}>
+      {restaurantContext && (
+        <Pressable style={styles.restaurantHeader} onPress={restaurantContext.onPress}>
+          <View style={styles.restaurantHeaderText}>
+            <Text style={styles.restaurantHeaderName} numberOfLines={1}>
+              {restaurantContext.name}
+            </Text>
+            {(restaurantContext.cuisine_type || restaurantContext.city) && (
+              <Text style={styles.restaurantHeaderMeta} numberOfLines={1}>
+                {[restaurantContext.cuisine_type, restaurantContext.city]
+                  .filter(Boolean)
+                  .join(' \u00B7 ')}
+              </Text>
+            )}
+          </View>
+          <CaretRightIcon size={14} color={colors.textFaint} weight="bold" />
+        </Pressable>
+      )}
       <View style={styles.meta}>
         <View style={styles.authorRow}>
           <View style={styles.avatarStack}>

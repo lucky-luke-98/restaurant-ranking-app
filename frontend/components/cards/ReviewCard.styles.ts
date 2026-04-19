@@ -13,6 +13,28 @@ export const createStyles = (colors: ThemeColors, shadows: ThemeShadows) => Styl
     borderLeftWidth: 3,
     borderLeftColor: colors.borderOwnCard,
   },
+  restaurantHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingBottom: 10,
+    marginBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  restaurantHeaderText: {
+    flex: 1,
+  },
+  restaurantHeaderName: {
+    color: colors.text,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  restaurantHeaderMeta: {
+    color: colors.textFaint,
+    fontSize: 12,
+    marginTop: 2,
+  },
   meta: {
     flexDirection: 'row',
     justifyContent: 'space-between',
