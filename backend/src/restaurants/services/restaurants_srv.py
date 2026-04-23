@@ -3,6 +3,7 @@ from loguru import logger
 from pymongo.errors import DuplicateKeyError
 
 from src.config import settings
+from src.config.place_types import is_food_place
 from src.db.mongo_client import get_mongo_collection
 from src.utils.wrappers import service
 from src.restaurants.models import (
@@ -96,7 +97,6 @@ def search_places(query: str) -> list[PlaceSearchResult]:
         },
         json={
             "input": query,
-            "includedPrimaryTypes": ["restaurant", "cafe", "bar", "bakery", "meal_takeaway"],
             "locationBias": {
                 "circle": {
                     "center": {"latitude": 50.9375, "longitude": 6.9603},
@@ -115,7 +115,7 @@ def search_places(query: str) -> list[PlaceSearchResult]:
             address=s["placePrediction"]["structuredFormat"]["secondaryText"]["text"],
         )
         for s in suggestions
-        if "placePrediction" in s
+        if "placePrediction" in s and is_food_place(s["placePrediction"].get("types"))
     ]
     results = results[:10]
     logger.info(f"Google Places search for '{query}' returned {len(results)} results")
