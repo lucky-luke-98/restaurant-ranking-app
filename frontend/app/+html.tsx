@@ -11,6 +11,12 @@ input:-webkit-autofill:active {
   caret-color: var(--autofill-text, #1F241A);
   transition: background-color 9999s ease-in-out 0s;
 }
+
+@supports (-webkit-touch-callout: none) {
+  input, textarea, [contenteditable="true"] {
+    font-size: 16px !important;
+  }
+}
 `
 
 export default function Root({ children }: PropsWithChildren) {
@@ -21,7 +27,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta
           name="viewport"
-          content="width=device-width, initial-scale=1, shrink-to-fit=no"
+          content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover"
         />
         <ScrollViewStyleReset />
         <style dangerouslySetInnerHTML={{ __html: autofillCss }} />

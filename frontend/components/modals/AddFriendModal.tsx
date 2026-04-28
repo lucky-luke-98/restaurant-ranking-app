@@ -23,6 +23,7 @@ import { useThemeColors } from '@/hooks/useThemeColors'
 import { useFriends, type FriendUser } from '@/services/FriendsContext'
 import apiClient from '@/services/apiClient'
 import { createStyles } from './AddFriendModal.styles'
+import { useWebModalEffects } from '@/hooks/useWebModalEffects'
 
 interface AddFriendModalProps {
   visible: boolean
@@ -35,6 +36,7 @@ export default function AddFriendModal({ visible, onClose }: AddFriendModalProps
   const { t } = useTranslation()
   const colors = useThemeColors()
   const styles = useMemo(() => createStyles(colors), [colors])
+  const { sheetStyle } = useWebModalEffects(visible)
   const {
     friends,
     incomingRequests,
@@ -139,7 +141,7 @@ export default function AddFriendModal({ visible, onClose }: AddFriendModalProps
         style={styles.overlay}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, sheetStyle]}>
           <View style={styles.header}>
             <Text style={styles.title}>{t.addFriendTitle}</Text>
             <Pressable onPress={onClose} hitSlop={12} style={styles.closeButton}>

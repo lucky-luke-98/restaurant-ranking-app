@@ -14,6 +14,7 @@ import {
 import { useTranslation } from '@/services/LanguageContext'
 import { useThemeColors } from '@/hooks/useThemeColors'
 import { createStyles } from './AddVisitedModal.styles'
+import { useWebModalEffects } from '@/hooks/useWebModalEffects'
 import { MagnifyingGlassIcon, HeartIcon, CaretLeftIcon } from 'phosphor-react-native'
 import { CUISINE_TYPES, CUISINE_ICONS, CUISINE_LABEL_KEYS, type CuisineType } from '@/constants/CuisineTypes'
 
@@ -53,6 +54,7 @@ export default function AddVisitedModal({
   const { t } = useTranslation()
   const colors = useThemeColors()
   const styles = useMemo(() => createStyles(colors), [colors])
+  const { sheetStyle } = useWebModalEffects(visible)
   const [mode, setMode] = useState<Mode>('choose')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<PlaceResult[]>([])
@@ -152,7 +154,7 @@ export default function AddVisitedModal({
         style={styles.overlay}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, sheetStyle]}>
           <View style={styles.header}>
             <Text style={styles.title}>
               {mode === 'choose' ? t.addVisitedTitle : mode === 'wishlist' ? t.fromWishlistTitle : t.searchRestaurantTitle}

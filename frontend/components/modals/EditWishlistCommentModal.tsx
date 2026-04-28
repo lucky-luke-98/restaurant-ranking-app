@@ -12,6 +12,7 @@ import {
 import { useTranslation } from '@/services/LanguageContext'
 import { useThemeColors } from '@/hooks/useThemeColors'
 import { createStyles } from './EditWishlistCommentModal.styles'
+import { useWebModalEffects } from '@/hooks/useWebModalEffects'
 
 const WISHLIST_COMMENT_MAX = 400
 
@@ -31,6 +32,7 @@ export default function EditWishlistCommentModal({
   const { t } = useTranslation()
   const colors = useThemeColors()
   const styles = useMemo(() => createStyles(colors), [colors])
+  const { sheetStyle } = useWebModalEffects(visible)
   const [comment, setComment] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -61,7 +63,7 @@ export default function EditWishlistCommentModal({
         style={styles.overlay}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, sheetStyle]}>
           <View style={styles.header}>
             <Text style={styles.title}>{t.wishlistCommentTitle}</Text>
             <Pressable onPress={onClose} hitSlop={12}>

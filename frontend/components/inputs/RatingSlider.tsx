@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { View, Text, Pressable, StyleSheet } from 'react-native'
+import { View, Text, Pressable, StyleSheet, Platform } from 'react-native'
 import { MinusIcon, PlusIcon } from 'phosphor-react-native'
 import { useThemeColors } from '@/hooks/useThemeColors'
 import { ThemeColors } from '@/constants/Colors'
@@ -20,14 +20,27 @@ export default function RatingSlider({ label, value, onChange }: RatingSliderPro
   const colors = useThemeColors()
   const styles = useMemo(() => createStyles(colors), [colors])
   const trackRef = React.useRef<View>(null)
+  const trackRectRef = React.useRef<{ x: number; width: number } | null>(null)
 
   const clamp = (v: number) => Math.round(Math.min(Math.max(v, 0), 10) * 10) / 10
 
-  const resolveValue = (pageX: number) => {
+  const applyRatio = (pageX: number, x: number, width: number) => {
+    if (width <= 0) return
+    const ratio = Math.min(Math.max((pageX - x) / width, 0), 1)
+    onChange(Math.round(ratio * 100) / 10)
+  }
+
+  const handleGrant = (pageX: number) => {
     trackRef.current?.measure((_x, _y, width, _h, px) => {
-      const ratio = Math.min(Math.max((pageX - px) / width, 0), 1)
-      onChange(Math.round(ratio * 100) / 10)
+      trackRectRef.current = { x: px, width }
+      applyRatio(pageX, px, width)
     })
+  }
+
+  const handleMove = (pageX: number) => {
+    const rect = trackRectRef.current
+    if (!rect) return
+    applyRatio(pageX, rect.x, rect.width)
   }
 
   const decrement = () => onChange(clamp(value - 0.1))
@@ -51,11 +64,12 @@ export default function RatingSlider({ label, value, onChange }: RatingSliderPro
         </Pressable>
         <View
           ref={trackRef}
-          style={styles.track}
+          style={[styles.track, Platform.OS === 'web' && webTrackStyle]}
           onStartShouldSetResponder={() => true}
           onMoveShouldSetResponder={() => true}
-          onResponderGrant={(e) => resolveValue(e.nativeEvent.pageX)}
-          onResponderMove={(e) => resolveValue(e.nativeEvent.pageX)}
+          onResponderTerminationRequest={() => false}
+          onResponderGrant={(e) => handleGrant(e.nativeEvent.pageX)}
+          onResponderMove={(e) => handleMove(e.nativeEvent.pageX)}
         >
           <View style={[styles.fill, { width: `${value * 10}%`, backgroundColor: fillColor }]} />
           <View style={[styles.thumb, { left: `${value * 10}%`, borderColor: fillColor }]} />
@@ -71,6 +85,8 @@ export default function RatingSlider({ label, value, onChange }: RatingSliderPro
     </View>
   )
 }
+
+const webTrackStyle = { touchAction: 'none' as const, userSelect: 'none' as const }
 
 const createStyles = (colors: ThemeColors) =>
   StyleSheet.create({

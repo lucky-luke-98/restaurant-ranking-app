@@ -14,6 +14,7 @@ import {
 import { useTranslation } from '@/services/LanguageContext'
 import { useThemeColors } from '@/hooks/useThemeColors'
 import { createStyles } from './AddWishlistModal.styles'
+import { useWebModalEffects } from '@/hooks/useWebModalEffects'
 import { MagnifyingGlassIcon, CaretLeftIcon } from 'phosphor-react-native'
 import { CUISINE_TYPES, CUISINE_ICONS, CUISINE_LABEL_KEYS, type CuisineType } from '@/constants/CuisineTypes'
 
@@ -41,6 +42,7 @@ export default function AddWishlistModal({
   const { t } = useTranslation()
   const colors = useThemeColors()
   const styles = useMemo(() => createStyles(colors), [colors])
+  const { sheetStyle } = useWebModalEffects(visible)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<PlaceResult[]>([])
   const [searching, setSearching] = useState(false)
@@ -116,7 +118,7 @@ export default function AddWishlistModal({
         style={styles.overlay}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, sheetStyle]}>
           <View style={styles.header}>
             {selectedPlace ? (
               <Pressable onPress={handleBackToSearch} hitSlop={12} style={styles.backRow}>

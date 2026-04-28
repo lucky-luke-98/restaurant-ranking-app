@@ -4,6 +4,7 @@ import { StyleSheet } from 'react-native'
 import { WarningIcon } from 'phosphor-react-native'
 import { useThemeColors } from '@/hooks/useThemeColors'
 import { ThemeColors } from '@/constants/Colors'
+import { useWebModalEffects } from '@/hooks/useWebModalEffects'
 
 interface ConfirmModalProps {
   visible: boolean
@@ -28,6 +29,7 @@ export default function ConfirmModal({
 }: ConfirmModalProps) {
   const colors = useThemeColors()
   const styles = useMemo(() => createStyles(colors), [colors])
+  useWebModalEffects(visible)
 
   return (
     <Modal visible={visible} animationType="fade" transparent>

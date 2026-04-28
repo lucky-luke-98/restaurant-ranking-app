@@ -19,6 +19,7 @@ import { useThemeColors } from '@/hooks/useThemeColors'
 import apiClient from '@/services/apiClient'
 import { createStyles } from './AddReviewModal.styles'
 import * as ImagePicker from 'expo-image-picker'
+import { useWebModalEffects } from '@/hooks/useWebModalEffects'
 
 const REVIEW_COMMENT_MAX = 1500
 
@@ -84,6 +85,7 @@ export default function AddReviewModal({
   const { t } = useTranslation()
   const colors = useThemeColors()
   const styles = useMemo(() => createStyles(colors), [colors])
+  const { sheetStyle } = useWebModalEffects(visible)
   const [cleanliness, setCleanliness] = useState(5)
   const [experience, setExperience] = useState(5)
   const [comment, setComment] = useState('')
@@ -309,7 +311,7 @@ export default function AddReviewModal({
         style={styles.overlay}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.sheet}>
+        <View style={[styles.sheet, sheetStyle]}>
           <View style={styles.header}>
             <Text style={styles.title}>{isEdit ? t.editReviewTitle : t.addReviewTitle}</Text>
             <Pressable onPress={handleClose} hitSlop={12}>
