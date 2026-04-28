@@ -109,7 +109,7 @@ async def create_review(
     try:
         user_id = current_user["user_id"]
         review_id = await to_thread(create_one_restaurant_review, request=request, user_id=user_id)
-        return CreateRestaurantReviewResponse(success=review_id is not None)
+        return CreateRestaurantReviewResponse(success=review_id is not None, review_id=review_id)
     except Exception as exp:
         raise HTTPException(status_code=500, detail=str(exp))
 

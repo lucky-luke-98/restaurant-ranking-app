@@ -60,6 +60,7 @@ interface Review {
 interface FoodReview {
   food_review_id: string
   user_id: string
+  review_id: string
   food_name: string
   price: number
   rating: number
@@ -163,13 +164,14 @@ export default function RestaurantDetailScreen() {
     fetchData()
   }, [fetchData])
 
-  // Group food reviews by user_id for display alongside restaurant reviews
-  const foodReviewsByUser = useMemo(() => {
+  // Group food reviews by review_id so each review card shows only the foods
+  // logged against that specific visit.
+  const foodReviewsByReview = useMemo(() => {
     const map = new Map<string, FoodReview[]>()
     for (const fr of foodReviews) {
-      const existing = map.get(fr.user_id) ?? []
+      const existing = map.get(fr.review_id) ?? []
       existing.push(fr)
-      map.set(fr.user_id, existing)
+      map.set(fr.review_id, existing)
     }
     return map
   }, [foodReviews])
@@ -184,19 +186,26 @@ export default function RestaurantDetailScreen() {
     food_items: FoodItemEntry[]
   }) => {
     // Create restaurant review (with images)
-    await apiClient.post('/review', {
-      restaurant_id: id,
-      cleanliness_rating: data.cleanliness_rating,
-      experience_rating: data.experience_rating,
-      comment: data.comment,
-      images: data.images,
-      ...(data.visited_at ? { visited_at: data.visited_at } : {}),
-      ...(data.coauthor_ids ? { coauthor_ids: data.coauthor_ids } : {}),
-    })
-    // Create food reviews
+    const created = await apiClient.post<{ success: boolean; review_id: string | null }>(
+      '/review',
+      {
+        restaurant_id: id,
+        cleanliness_rating: data.cleanliness_rating,
+        experience_rating: data.experience_rating,
+        comment: data.comment,
+        images: data.images,
+        ...(data.visited_at ? { visited_at: data.visited_at } : {}),
+        ...(data.coauthor_ids ? { coauthor_ids: data.coauthor_ids } : {}),
+      },
+    )
+    if (!created.review_id) {
+      throw new Error('Failed to create restaurant review.')
+    }
+    // Create food reviews scoped to the new review
     for (const item of data.food_items) {
       await apiClient.post('/review/food', {
         restaurant_id: id,
+        review_id: created.review_id,
         food_name: item.food_name,
         price: item.price,
         rating: item.rating,
@@ -214,15 +223,8 @@ export default function RestaurantDetailScreen() {
 
   const executeDelete = async () => {
     if (!confirmDelete) return
-    // Delete the restaurant review (backend cascades image deletion)
+    // Backend cascades food reviews and all related images.
     await apiClient.delete(`/review/${confirmDelete.id}`)
-    // Also delete associated food reviews for this user
-    const userFoodReviews = foodReviews.filter(
-      (fr) => fr.user_id === user?.user_id
-    )
-    for (const fr of userFoodReviews) {
-      await apiClient.delete(`/review/food/${fr.food_review_id}`)
-    }
     setConfirmDelete(null)
     fetchData()
   }
@@ -249,14 +251,14 @@ export default function RestaurantDetailScreen() {
   }
 
   const handleEditReview = (review: Review) => {
-    const userFoods = foodReviewsByUser.get(user?.user_id ?? review.user_id) ?? []
+    const reviewFoods = foodReviewsByReview.get(review.review_id) ?? []
     setEditingReview({
       review_id: review.review_id,
       cleanliness_rating: review.cleanliness_rating,
       experience_rating: review.experience_rating,
       comment: review.comment,
       visited_at: review.visited_at,
-      food_items: userFoods.map((fr) => ({
+      food_items: reviewFoods.map((fr) => ({
         food_review_id: fr.food_review_id,
         food_name: fr.food_name,
         price: fr.price,
@@ -309,9 +311,10 @@ export default function RestaurantDetailScreen() {
           ...(data.visited_at ? { visited_at: data.visited_at } : {}),
         })
       } else {
-        // Create new food review
+        // Create new food review scoped to this restaurant review
         await apiClient.post('/review/food', {
           restaurant_id: id,
+          review_id: editingReview!.review_id,
           food_name: item.food_name,
           price: item.price,
           rating: item.rating,
@@ -432,7 +435,7 @@ export default function RestaurantDetailScreen() {
               <ReviewCard
                 key={review.review_id}
                 review={review}
-                foodReviews={foodReviewsByUser.get(review.user_id) ?? []}
+                foodReviews={foodReviewsByReview.get(review.review_id) ?? []}
                 isOwn={!!user && review.user_id === user.user_id}
                 isCoauthor={!!user && !!review.coauthors?.some((c) => c.user_id === user.user_id)}
                 imagesLoading={imagesLoading}

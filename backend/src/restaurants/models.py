@@ -36,6 +36,7 @@ class FoodReview(BaseModel):
     food_review_id: str = Field(default_factory=lambda: str(uuid4()))
     user_id: str
     restaurant_id: str
+    review_id: str
     food_name: str
     price: float
     rating: float
@@ -108,6 +109,7 @@ class CreateRestaurantReviewRequest(BaseModel):
 
 class CreateFoodReviewRequest(BaseModel):
     restaurant_id: str = Field(..., description="ID of the restaurant the food belongs to.")
+    review_id: str = Field(..., description="ID of the restaurant review this food belongs to.")
     food_name: str = Field(..., description="Name of the food item being reviewed by the user.")
     price: float = Field(..., gt=0.0, description="The price of the food.")
     rating: float = Field(..., ge=0.0, le=10.0, description="Rating given by the user (1 to 10).")
@@ -204,6 +206,7 @@ class DeleteRestaurantResponse(BaseModel):
     success: bool
 
 class CreateRestaurantReviewResponse(BaseModel):
+    review_id: str | None = None
     success: bool
 
 class GetReviewsByRestaurantResponse(BaseModel):

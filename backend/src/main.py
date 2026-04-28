@@ -12,7 +12,6 @@ from src.users import user_router
 from src.restaurants.controllers import *
 from src.utils.rate_limit import limiter
 from src.db.mongo_client import initialize_mongo_client, close_mongo_client
-from src.users.services import migrate_friends_add_status
 
 
 @asynccontextmanager
@@ -21,9 +20,6 @@ async def lifespan(app: FastAPI):
     configure_logger()
     logger.info("Starting up the backend application ...")
     initialize_mongo_client()
-    migrated = migrate_friends_add_status()
-    if migrated:
-        logger.info(f"Back-filled status on {migrated} legacy friend connection(s).")
     logger.info("Backend app start up complete.")
 
     yield

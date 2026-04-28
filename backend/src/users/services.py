@@ -305,17 +305,3 @@ def get_outgoing_friend_requests(user_id: str) -> list[dict]:
         {"user_id": 1, "first_name": 1, "last_name": 1, "avatar": 1, "_id": 0},
     ))
     return users
-
-
-@service
-def migrate_friends_add_status() -> int:
-    """
-    Back-fills status="accepted" on pre-existing friend docs that predate the
-    request/accept flow. Idempotent.
-    """
-    collection = get_mongo_collection(settings.mongo_friends_collection)
-    result = collection.update_many(
-        {"status": {"$exists": False}},
-        {"$set": {"status": "accepted"}},
-    )
-    return result.modified_count

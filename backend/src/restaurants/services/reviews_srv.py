@@ -139,13 +139,25 @@ def get_review_by_id(review_id: str) -> dict | None:
 @service
 def delete_review(request: DeleteReviewRequest) -> bool:
     """
-    Deletes a restaurant review by its ID and all associated images.
+    Deletes a restaurant review by its ID, all associated images, and any
+    food reviews scoped to this review (along with their images).
     """
     collection = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
     result = collection.delete_one({"review_id": request.review_id})
     if result.deleted_count > 0:
         images_collection = get_mongo_collection(collection_name=settings.mongo_images_collection)
         images_collection.delete_many({"review_id": request.review_id})
+
+        food_reviews_col = get_mongo_collection(collection_name=settings.mongo_food_reviews_collection)
+        food_review_ids = [
+            fr["food_review_id"]
+            for fr in food_reviews_col.find(
+                {"review_id": request.review_id}, {"food_review_id": 1}
+            )
+        ]
+        if food_review_ids:
+            food_reviews_col.delete_many({"review_id": request.review_id})
+            images_collection.delete_many({"food_review_id": {"$in": food_review_ids}})
         return True
     return False
 
@@ -370,16 +382,18 @@ def create_food_review(request: CreateFoodReviewRequest, user_id: str) -> str | 
     if not verify_user_entry(user_id):
         raise ValueError("User ID not found in the db. Please set the user first.")
 
-    # Require the user to be an owner or coauthor of a restaurant review
+    # Require the user to be the owner or a coauthor of THIS specific review,
+    # and that the review actually belongs to the supplied restaurant.
     reviews_col = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
-    has_review = reviews_col.find_one({
+    parent_review = reviews_col.find_one({
+        "review_id": request.review_id,
         "restaurant_id": request.restaurant_id,
         "$or": [
             {"user_id": user_id},
             {"coauthor_ids": user_id},
         ],
     })
-    if not has_review:
+    if not parent_review:
         raise ValueError("You must submit a restaurant review before adding a food review.")
 
     collection = get_mongo_collection(collection_name=settings.mongo_food_reviews_collection)
