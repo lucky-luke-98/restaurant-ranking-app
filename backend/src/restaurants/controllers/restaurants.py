@@ -12,13 +12,9 @@ from src.restaurants.models import (
     GetRestaurantByIdResponse,
     DeleteRestaurantResponse,
 )
-from src.restaurants.services.restaurants_srv import (
-    search_places,
-    create_one_restaurant,
-    get_all_restaurants,
-    get_restaurant_by_id,
-    delete_restaurant,
-)
+from src.restaurants.services.restaurants_srv import RestaurantService
+from src.restaurants.gateways import GooglePlacesError
+from src.dependencies import get_restaurant_service
 from src.utils.auth import get_current_user, enforce_owner
 from src.utils.rate_limit import limiter
 
@@ -33,11 +29,14 @@ async def search_restaurants(
     request: Request,
     query: str,
     _: dict = Depends(get_current_user),
+    restaurants: RestaurantService = Depends(get_restaurant_service),
 ) -> SearchPlacesResponse:
     """Endpoint to search for restaurants via Google Places Autocomplete."""
     try:
-        results = await to_thread(search_places, query=query)
+        results = await to_thread(restaurants.search_places, query=query)
         return SearchPlacesResponse(results=results)
+    except GooglePlacesError as exp:
+        raise HTTPException(status_code=502, detail=str(exp))
     except Exception as exp:
         raise HTTPException(status_code=500, detail=str(exp))
 
@@ -48,14 +47,17 @@ async def search_restaurants(
 async def create_restaurant(
     request: CreateRestaurantRequest,
     current_user: dict = Depends(get_current_user),
+    restaurants: RestaurantService = Depends(get_restaurant_service),
 ) -> CreateRestaurantResponse:
     """Endpoint to create a restaurant from a Google Place ID."""
     try:
         user_id = current_user["user_id"]
-        res_id = await to_thread(create_one_restaurant, request=request, user_id=user_id)
+        res_id = await to_thread(restaurants.create_one_restaurant, request=request, user_id=user_id)
         if res_id:
             return CreateRestaurantResponse(restaurant_id=res_id, success=True)
         raise Exception("Error while creating one restaurant list entry.")
+    except GooglePlacesError as exp:
+        raise HTTPException(status_code=502, detail=str(exp))
     except Exception as exp:
         raise HTTPException(status_code=500, detail=str(exp))
 
@@ -63,11 +65,12 @@ async def create_restaurant(
 @router.get("")
 async def get_restaurants(
     _: dict = Depends(get_current_user),
+    restaurants: RestaurantService = Depends(get_restaurant_service),
 ) -> GetAllRestaurantsResponse:
     """Endpoint to get all restaurants."""
     try:
-        restaurants = await to_thread(get_all_restaurants)
-        return GetAllRestaurantsResponse(restaurants=restaurants)
+        result = await to_thread(restaurants.get_all_restaurants)
+        return GetAllRestaurantsResponse(restaurants=result)
     except Exception as exp:
         raise HTTPException(status_code=500, detail=str(exp))
 
@@ -76,11 +79,12 @@ async def get_restaurants(
 async def get_restaurant(
     restaurant_id: str,
     _: dict = Depends(get_current_user),
+    restaurants: RestaurantService = Depends(get_restaurant_service),
 ) -> GetRestaurantByIdResponse:
     """Endpoint to get a single restaurant by ID."""
     try:
         request = GetRestaurantByIdRequest(restaurant_id=restaurant_id)
-        restaurant = await to_thread(get_restaurant_by_id, request=request)
+        restaurant = await to_thread(restaurants.get_restaurant_by_id, request=request)
         return GetRestaurantByIdResponse(restaurant=restaurant)
     except Exception as exp:
         raise HTTPException(status_code=500, detail=str(exp))
@@ -90,11 +94,12 @@ async def get_restaurant(
 async def remove_restaurant(
     restaurant_id: str,
     current_user: dict = Depends(get_current_user),
+    restaurants: RestaurantService = Depends(get_restaurant_service),
 ) -> DeleteRestaurantResponse:
     """Endpoint to delete a restaurant by ID."""
     try:
         restaurant = await to_thread(
-            get_restaurant_by_id,
+            restaurants.get_restaurant_by_id,
             request=GetRestaurantByIdRequest(restaurant_id=restaurant_id),
         )
         if not restaurant:
@@ -102,7 +107,7 @@ async def remove_restaurant(
         if current_user.get("role") != "admin":
             enforce_owner(current_user, restaurant.get("created_by", ""))
         request = DeleteRestaurantRequest(restaurant_id=restaurant_id)
-        success = await to_thread(delete_restaurant, request=request)
+        success = await to_thread(restaurants.delete_restaurant, request=request)
         return DeleteRestaurantResponse(success=success)
     except HTTPException:
         raise

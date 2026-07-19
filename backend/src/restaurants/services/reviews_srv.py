@@ -1,8 +1,9 @@
+"""Review-domain business logic: restaurant reviews and food reviews."""
+
 from datetime import datetime, timezone
 
 from src.config import settings
-from src.db.mongo_client import get_mongo_collection
-from src.users.services import verify_user_entry
+from src.unit_of_work import UnitOfWork
 from src.restaurants.models import (
     CreateRestaurantReviewRequest,
     GetReviewsByRestaurantRequest,
@@ -17,297 +18,175 @@ from src.restaurants.models import (
     FoodReviewImage,
     GetFoodReviewsByRestaurantRequest,
     UpdateFoodReviewRequest,
-    DeleteFoodReviewRequest
+    DeleteFoodReviewRequest,
 )
 from src.utils.wrappers import service
 
 
-# ==================== restaurant reviews ==================== #
-
-@service
-def create_one_restaurant_review(request: CreateRestaurantReviewRequest, user_id: str) -> str | None:
-    """
-    Creates one restaurant review entry based on provided information.
-    If coauthor_ids are provided, stores them on the review and creates
-    visited entries for each coauthor.
-    """
-    if not verify_user_entry(user_id):
-        raise ValueError("User ID not found in the db. Please set the user first.")
-
-    # Validate all coauthor IDs exist before proceeding
-    if request.coauthor_ids:
-        for coauthor_id in request.coauthor_ids:
-            if not verify_user_entry(coauthor_id):
-                raise ValueError(f"Coauthor user '{coauthor_id}' not found.")
-
-    collection = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
-    review_data = request.model_dump(exclude={"coauthor_ids", "images"})
-    review = RestaurantReview(**review_data, user_id=user_id)
-    doc = review.model_dump(mode="json")
-    if request.coauthor_ids:
-        doc["coauthor_ids"] = request.coauthor_ids
-    result = collection.insert_one(doc)
-    if not result.acknowledged:
-        return None
-
-    # Move from wishlist to visited for the reviewer
-    visited_col = get_mongo_collection(collection_name=settings.mongo_visited_collection)
-    wishlist_col = get_mongo_collection(collection_name=settings.mongo_wishlist_collection)
-
-    existing_visited = visited_col.find_one({"user_id": user_id, "restaurant_id": request.restaurant_id})
-    if not existing_visited:
-        entry = VisitedEntry(user_id=user_id, restaurant_id=request.restaurant_id)
-        visited_col.insert_one(entry.model_dump())
-    wishlist_col.delete_one({"user_id": user_id, "restaurant_id": request.restaurant_id})
-
-    # Create visited entries for coauthors
-    if request.coauthor_ids:
-        for coauthor_id in request.coauthor_ids:
-            existing = visited_col.find_one({
-                "user_id": coauthor_id,
-                "restaurant_id": request.restaurant_id,
-            })
-            if not existing:
-                entry = VisitedEntry(user_id=coauthor_id, restaurant_id=request.restaurant_id)
-                visited_col.insert_one(entry.model_dump())
-            wishlist_col.delete_one({"user_id": coauthor_id, "restaurant_id": request.restaurant_id})
-
-    # Store review images
-    valid_images = [img for img in request.images if len(img) <= settings.max_image_bytes]
-    if valid_images:
-        images_collection = get_mongo_collection(collection_name=settings.mongo_images_collection)
-        for img_data in valid_images:
-            doc = ReviewImage(review_id=review.review_id, data=img_data).model_dump()
-            images_collection.insert_one(doc)
-
-    return review.review_id
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
 
 
-@service
-def get_reviews_by_restaurant(request: GetReviewsByRestaurantRequest) -> list[dict]:
-    """
-    Returns all reviews for a given restaurant, enriched with reviewer first_name.
-    """
-    collection = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
-    users_collection = get_mongo_collection(collection_name=settings.mongo_users_collection)
-    reviews = list(collection.find({"restaurant_id": request.restaurant_id}))
-    user_ids = list({r["user_id"] for r in reviews})
-    user_map = {}
-    if user_ids:
-        users = users_collection.find({"user_id": {"$in": user_ids}}, {"user_id": 1, "first_name": 1, "avatar": 1})
-        user_map = {u["user_id"]: {"first_name": u.get("first_name", ""), "avatar": u.get("avatar")} for u in users}
-    # Collect all user IDs including coauthors
-    coauthor_ids_all = set()
-    for review in reviews:
-        for cid in review.get("coauthor_ids", []):
-            coauthor_ids_all.add(cid)
-    extra_ids = coauthor_ids_all - set(user_ids)
-    if extra_ids:
-        extra_users = users_collection.find({"user_id": {"$in": list(extra_ids)}}, {"user_id": 1, "first_name": 1, "avatar": 1})
-        for u in extra_users:
-            user_map[u["user_id"]] = {"first_name": u.get("first_name", ""), "avatar": u.get("avatar")}
-
-    for review in reviews:
-        review.pop("_id", None)
-        info = user_map.get(review["user_id"], {})
-        review["first_name"] = info.get("first_name", "")
-        if info.get("avatar"):
-            review["avatar"] = info["avatar"]
-        # Enrich coauthors
-        if review.get("coauthor_ids"):
-            review["coauthors"] = []
-            for cid in review["coauthor_ids"]:
-                ci = user_map.get(cid, {})
-                review["coauthors"].append({
-                    "user_id": cid,
-                    "first_name": ci.get("first_name", ""),
-                    "avatar": ci.get("avatar"),
-                })
-    return reviews
-
-
-@service
-def get_review_by_id(review_id: str) -> dict | None:
-    """Returns a single review by its ID."""
-    collection = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
-    review = collection.find_one({"review_id": review_id})
-    if review:
-        review.pop("_id", None)
-    return review
-
-
-@service
-def delete_review(request: DeleteReviewRequest) -> bool:
-    """
-    Deletes a restaurant review by its ID, all associated images, and any
-    food reviews scoped to this review (along with their images).
-    """
-    collection = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
-    result = collection.delete_one({"review_id": request.review_id})
-    if result.deleted_count > 0:
-        images_collection = get_mongo_collection(collection_name=settings.mongo_images_collection)
-        images_collection.delete_many({"review_id": request.review_id})
-
-        food_reviews_col = get_mongo_collection(collection_name=settings.mongo_food_reviews_collection)
-        food_review_ids = [
-            fr["food_review_id"]
-            for fr in food_reviews_col.find(
-                {"review_id": request.review_id}, {"food_review_id": 1}
-            )
-        ]
-        if food_review_ids:
-            food_reviews_col.delete_many({"review_id": request.review_id})
-            images_collection.delete_many({"food_review_id": {"$in": food_review_ids}})
-        return True
-    return False
-
-
-@service
-def leave_review(review_id: str, user_id: str) -> bool:
-    """Removes a coauthor from a review's coauthor_ids list."""
-    collection = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
-    result = collection.update_one(
-        {"review_id": review_id},
-        {"$pull": {"coauthor_ids": user_id}},
-    )
-    return result.modified_count > 0
-
-
-@service
-def update_restaurant_review(request: UpdateRestaurantReviewRequest) -> bool:
-    """Updates a restaurant review with the provided fields."""
-    collection = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
-    updates = {}
-    for field in ("cleanliness_rating", "experience_rating", "comment", "visited_at"):
-        value = getattr(request, field)
-        if value is not None:
-            updates[field] = value.isoformat() if hasattr(value, "isoformat") else value
-
-    # Handle coauthor_ids update
-    if request.coauthor_ids is not None:
-        # Validate all coauthor IDs exist
-        for coauthor_id in request.coauthor_ids:
-            if not verify_user_entry(coauthor_id):
-                raise ValueError(f"Coauthor user '{coauthor_id}' not found.")
-        updates["coauthor_ids"] = request.coauthor_ids
-
-        # Create visited entries for new coauthors
-        review = collection.find_one({"review_id": request.review_id})
-        if review:
-            visited_col = get_mongo_collection(collection_name=settings.mongo_visited_collection)
-            wishlist_col = get_mongo_collection(collection_name=settings.mongo_wishlist_collection)
-            for coauthor_id in request.coauthor_ids:
-                existing = visited_col.find_one({
-                    "user_id": coauthor_id,
-                    "restaurant_id": review["restaurant_id"],
-                })
-                if not existing:
-                    entry = VisitedEntry(user_id=coauthor_id, restaurant_id=review["restaurant_id"])
-                    visited_col.insert_one(entry.model_dump())
-                wishlist_col.delete_one({"user_id": coauthor_id, "restaurant_id": review["restaurant_id"]})
-
-    # Handle images update: replace the full set when provided
-    images_changed = False
-    if request.images is not None:
-        valid_images = [img for img in request.images if len(img) <= settings.max_image_bytes]
-        images_collection = get_mongo_collection(collection_name=settings.mongo_images_collection)
-        images_collection.delete_many({"review_id": request.review_id})
-        for img_data in valid_images:
-            doc = ReviewImage(review_id=request.review_id, data=img_data).model_dump()
-            images_collection.insert_one(doc)
-        images_changed = True
-
-    if not updates:
-        return images_changed
-    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
-    result = collection.update_one(
-        {"review_id": request.review_id},
-        {"$set": updates},
-    )
-    return result.modified_count > 0 or images_changed
-
-
-@service
-def get_friends_feed(
-    user_id: str,
-    cursor_created_at: str | None,
-    cursor_review_id: str | None,
-    limit: int = 20,
-) -> tuple[list[dict], bool]:
-    """
-    Returns a reverse-chronological page of reviews authored or coauthored by the
-    user's accepted friends. Excludes reviews where the user is author or coauthor.
-    Uses keyset pagination on (created_at, review_id) for stability under new inserts.
-    """
-    from src.users.services import get_friends
-
-    friends = get_friends(user_id)
-    friend_ids = [f["user_id"] for f in friends]
-    if not friend_ids:
-        return [], False
-
-    reviews_col = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
-    users_col = get_mongo_collection(collection_name=settings.mongo_users_collection)
-    restaurants_col = get_mongo_collection(collection_name=settings.mongo_restaurants_collection)
-
-    query: dict = {
-        "$and": [
-            {"$or": [
-                {"user_id": {"$in": friend_ids}},
-                {"coauthor_ids": {"$in": friend_ids}},
-            ]},
-            {"user_id": {"$ne": user_id}},
-            {"coauthor_ids": {"$ne": user_id}},
-        ]
+def _profile_map(profiles: list[dict]) -> dict:
+    """Index lightweight profiles by user_id, keeping only first_name + avatar."""
+    return {
+        p["user_id"]: {"first_name": p.get("first_name", ""), "avatar": p.get("avatar")}
+        for p in profiles
     }
-    if cursor_created_at and cursor_review_id:
-        query["$and"].append({"$or": [
-            {"created_at": {"$lt": cursor_created_at}},
-            {"created_at": cursor_created_at, "review_id": {"$lt": cursor_review_id}},
-        ]})
 
-    reviews = list(
-        reviews_col.find(query)
-        .sort([("created_at", -1), ("review_id", -1)])
-        .limit(limit + 1)
-    )
-    has_more = len(reviews) > limit
-    if has_more:
-        reviews = reviews[:limit]
-    if not reviews:
-        return [], False
 
-    user_ids_set = {r["user_id"] for r in reviews}
-    for r in reviews:
-        for cid in r.get("coauthor_ids", []):
-            user_ids_set.add(cid)
+class ReviewService:
+    """Restaurant reviews, the friends feed, and review-level stats/images."""
 
-    user_map: dict = {}
-    if user_ids_set:
-        users = users_col.find(
-            {"user_id": {"$in": list(user_ids_set)}},
-            {"user_id": 1, "first_name": 1, "avatar": 1},
+    def __init__(self, uow: UnitOfWork):
+        self._uow = uow
+
+    # ---- helpers ----
+
+    def _move_to_visited(self, user_id: str, restaurant_id: str) -> None:
+        """Ensure a visited entry exists for (user, restaurant) and drop any wishlist entry."""
+        if not self._uow.visited.get_by_user_and_restaurant(user_id, restaurant_id):
+            self._uow.visited.add(VisitedEntry(user_id=user_id, restaurant_id=restaurant_id))
+        self._uow.wishlist.delete_by_user_and_restaurant(user_id, restaurant_id)
+
+    # ---- restaurant reviews ----
+
+    @service
+    def create_one_restaurant_review(self, request: CreateRestaurantReviewRequest, user_id: str) -> str | None:
+        """Create a restaurant review, move author + coauthors to visited, store images."""
+        if not self._uow.users.exists(user_id):
+            raise ValueError("User ID not found in the db. Please set the user first.")
+        for coauthor_id in request.coauthor_ids:
+            if not self._uow.users.exists(coauthor_id):
+                raise ValueError(f"Coauthor user '{coauthor_id}' not found.")
+
+        review = RestaurantReview(
+            **request.model_dump(exclude={"coauthor_ids", "images"}), user_id=user_id
         )
-        user_map = {
-            u["user_id"]: {"first_name": u.get("first_name", ""), "avatar": u.get("avatar")}
-            for u in users
-        }
+        if not self._uow.reviews.add(review, request.coauthor_ids):
+            return None
 
-    restaurant_ids = list({r["restaurant_id"] for r in reviews})
-    restaurant_map: dict = {}
-    if restaurant_ids:
-        rlist = restaurants_col.find(
-            {"restaurant_id": {"$in": restaurant_ids}},
-            {
-                "restaurant_id": 1,
-                "name": 1,
-                "cuisine_type": 1,
-                "street": 1,
-                "city": 1,
-                "latitude": 1,
-                "longitude": 1,
-            },
+        self._move_to_visited(user_id, request.restaurant_id)
+        for coauthor_id in request.coauthor_ids:
+            self._move_to_visited(coauthor_id, request.restaurant_id)
+
+        for img in request.images:
+            if len(img) <= settings.max_image_bytes:
+                self._uow.images.add_review_image(ReviewImage(review_id=review.review_id, data=img))
+
+        return review.review_id
+
+    @service
+    def get_reviews_by_restaurant(self, request: GetReviewsByRestaurantRequest) -> list[dict]:
+        """Return all reviews for a restaurant, enriched with reviewer/coauthor info."""
+        reviews = self._uow.reviews.list_for_restaurant(request.restaurant_id)
+
+        ids = {r["user_id"] for r in reviews}
+        for review in reviews:
+            ids.update(review.get("coauthor_ids", []))
+        user_map = _profile_map(self._uow.users.get_profiles(list(ids)))
+
+        for review in reviews:
+            info = user_map.get(review["user_id"], {})
+            review["first_name"] = info.get("first_name", "")
+            if info.get("avatar"):
+                review["avatar"] = info["avatar"]
+            if review.get("coauthor_ids"):
+                review["coauthors"] = [
+                    {
+                        "user_id": cid,
+                        "first_name": user_map.get(cid, {}).get("first_name", ""),
+                        "avatar": user_map.get(cid, {}).get("avatar"),
+                    }
+                    for cid in review["coauthor_ids"]
+                ]
+        return reviews
+
+    @service
+    def get_review_by_id(self, review_id: str) -> dict | None:
+        """Return a single review by id."""
+        return self._uow.reviews.get(review_id)
+
+    @service
+    def delete_review(self, request: DeleteReviewRequest) -> bool:
+        """Delete a review, its images, and any food reviews (with their images)."""
+        if not self._uow.reviews.delete(request.review_id):
+            return False
+        self._uow.images.delete_by_review(request.review_id)
+        food_review_ids = self._uow.food_reviews.list_ids_for_review(request.review_id)
+        if food_review_ids:
+            self._uow.food_reviews.delete_for_review(request.review_id)
+            self._uow.images.delete_by_food_reviews(food_review_ids)
+        return True
+
+    @service
+    def leave_review(self, review_id: str, user_id: str) -> bool:
+        """Remove a coauthor from a review's coauthor list."""
+        return self._uow.reviews.pull_coauthor(review_id, user_id)
+
+    @service
+    def update_restaurant_review(self, request: UpdateRestaurantReviewRequest) -> bool:
+        """Update a restaurant review, its coauthors, and/or its images."""
+        updates: dict = {}
+        for field in ("cleanliness_rating", "experience_rating", "comment", "visited_at"):
+            value = getattr(request, field)
+            if value is not None:
+                updates[field] = value.isoformat() if hasattr(value, "isoformat") else value
+
+        if request.coauthor_ids is not None:
+            for coauthor_id in request.coauthor_ids:
+                if not self._uow.users.exists(coauthor_id):
+                    raise ValueError(f"Coauthor user '{coauthor_id}' not found.")
+            updates["coauthor_ids"] = request.coauthor_ids
+            review = self._uow.reviews.get(request.review_id)
+            if review:
+                for coauthor_id in request.coauthor_ids:
+                    self._move_to_visited(coauthor_id, review["restaurant_id"])
+
+        images_changed = False
+        if request.images is not None:
+            self._uow.images.delete_by_review(request.review_id)
+            for img in request.images:
+                if len(img) <= settings.max_image_bytes:
+                    self._uow.images.add_review_image(ReviewImage(review_id=request.review_id, data=img))
+            images_changed = True
+
+        if not updates:
+            return images_changed
+        updates["updated_at"] = _now_iso()
+        return self._uow.reviews.update_fields(request.review_id, updates) or images_changed
+
+    @service
+    def get_friends_feed(
+        self,
+        user_id: str,
+        cursor_created_at: str | None,
+        cursor_review_id: str | None,
+        limit: int = 20,
+    ) -> tuple[list[dict], bool]:
+        """Return a reverse-chronological page of reviews by the user's friends."""
+        friend_entries = self._uow.friends.list_for_user(user_id, "accepted")
+        friend_ids = [e["friend_user_id"] for e in friend_entries]
+        if not friend_ids:
+            return [], False
+
+        reviews = self._uow.reviews.find_friends_feed(
+            friend_ids, user_id, cursor_created_at, cursor_review_id, limit
         )
+        has_more = len(reviews) > limit
+        if has_more:
+            reviews = reviews[:limit]
+        if not reviews:
+            return [], False
+
+        # Reviewer + coauthor profiles
+        user_ids_set = {r["user_id"] for r in reviews}
+        for review in reviews:
+            user_ids_set.update(review.get("coauthor_ids", []))
+        user_map = _profile_map(self._uow.users.get_profiles(list(user_ids_set)))
+
+        # Restaurant summaries + aggregate food ratings
+        restaurant_ids = list({r["restaurant_id"] for r in reviews})
         restaurant_map = {
             r["restaurant_id"]: {
                 "restaurant_id": r["restaurant_id"],
@@ -318,248 +197,148 @@ def get_friends_feed(
                 "latitude": r.get("latitude"),
                 "longitude": r.get("longitude"),
             }
-            for r in rlist
+            for r in self._uow.restaurants.get_many(restaurant_ids)
         }
-
-        food_reviews_col = get_mongo_collection(
-            collection_name=settings.mongo_food_reviews_collection
-        )
-        food_rating_pipeline = [
-            {"$match": {"restaurant_id": {"$in": restaurant_ids}}},
-            {"$group": {
-                "_id": "$restaurant_id",
-                "avg_rating": {"$avg": "$rating"},
-                "count": {"$sum": 1},
-            }},
-        ]
-        for agg in food_reviews_col.aggregate(food_rating_pipeline):
-            rid = agg["_id"]
+        for stat in self._uow.food_reviews.rating_stats(restaurant_ids):
+            rid = stat["restaurant_id"]
             if rid in restaurant_map:
                 restaurant_map[rid]["avg_rating"] = (
-                    round(agg["avg_rating"], 1) if agg["avg_rating"] is not None else None
+                    round(stat["avg_rating"], 1) if stat["avg_rating"] is not None else None
                 )
-                restaurant_map[rid]["rating_count"] = agg["count"]
+                restaurant_map[rid]["rating_count"] = stat["count"]
 
-    for review in reviews:
-        review.pop("_id", None)
-        info = user_map.get(review["user_id"], {})
-        review["first_name"] = info.get("first_name", "")
-        if info.get("avatar"):
-            review["avatar"] = info["avatar"]
-        if review.get("coauthor_ids"):
-            review["coauthors"] = [
-                {
-                    "user_id": cid,
-                    "first_name": user_map.get(cid, {}).get("first_name", ""),
-                    "avatar": user_map.get(cid, {}).get("avatar"),
-                }
-                for cid in review["coauthor_ids"]
-            ]
-        review["restaurant"] = restaurant_map.get(review["restaurant_id"])
+        for review in reviews:
+            info = user_map.get(review["user_id"], {})
+            review["first_name"] = info.get("first_name", "")
+            if info.get("avatar"):
+                review["avatar"] = info["avatar"]
+            if review.get("coauthor_ids"):
+                review["coauthors"] = [
+                    {
+                        "user_id": cid,
+                        "first_name": user_map.get(cid, {}).get("first_name", ""),
+                        "avatar": user_map.get(cid, {}).get("avatar"),
+                    }
+                    for cid in review["coauthor_ids"]
+                ]
+            review["restaurant"] = restaurant_map.get(review["restaurant_id"])
 
-    return reviews, has_more
+        return reviews, has_more
 
+    @service
+    def get_reviewed_restaurant_ids_by_user(self, request: GetReviewedRestaurantIdsByUserRequest) -> list[str]:
+        """Return distinct restaurant ids that a user has reviewed."""
+        return self._uow.reviews.list_reviewed_restaurant_ids(request.user_id)
 
-@service
-def get_reviewed_restaurant_ids_by_user(request: GetReviewedRestaurantIdsByUserRequest) -> list[str]:
-    """
-    Returns distinct restaurant IDs that a user has reviewed.
-    """
-    collection = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
-    reviews = list(collection.find({"user_id": request.user_id}, {"restaurant_id": 1}))
-    return list({r["restaurant_id"] for r in reviews})
-
-
-# ==================== food reviews ==================== #
-
-@service
-def create_food_review(request: CreateFoodReviewRequest, user_id: str) -> str | None:
-    """
-    Creates a food review entry based on provided information.
-    Requires the user to have a restaurant review for this restaurant first.
-    Also stores any attached images in the images collection.
-    """
-    if not verify_user_entry(user_id):
-        raise ValueError("User ID not found in the db. Please set the user first.")
-
-    # Require the user to be the owner or a coauthor of THIS specific review,
-    # and that the review actually belongs to the supplied restaurant.
-    reviews_col = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
-    parent_review = reviews_col.find_one({
-        "review_id": request.review_id,
-        "restaurant_id": request.restaurant_id,
-        "$or": [
-            {"user_id": user_id},
-            {"coauthor_ids": user_id},
-        ],
-    })
-    if not parent_review:
-        raise ValueError("You must submit a restaurant review before adding a food review.")
-
-    collection = get_mongo_collection(collection_name=settings.mongo_food_reviews_collection)
-    review_data = request.model_dump(exclude={"images"})
-    food_review = FoodReview(**review_data, user_id=user_id)
-    result = collection.insert_one(food_review.model_dump(mode="json"))
-    if not result.acknowledged:
-        return None
-
-    valid_images = [img for img in request.images if len(img) <= settings.max_image_bytes]
-    if valid_images:
-        images_collection = get_mongo_collection(collection_name=settings.mongo_images_collection)
-        for img_data in valid_images:
-            doc = FoodReviewImage(food_review_id=food_review.food_review_id, data=img_data).model_dump()
-            images_collection.insert_one(doc)
-
-    return food_review.food_review_id
-
-
-@service
-def get_food_reviews_by_restaurant(request: GetFoodReviewsByRestaurantRequest) -> list[dict]:
-    """
-    Returns all food reviews for a given restaurant, enriched with reviewer first_name.
-    """
-    collection = get_mongo_collection(collection_name=settings.mongo_food_reviews_collection)
-    users_collection = get_mongo_collection(collection_name=settings.mongo_users_collection)
-    food_reviews = list(collection.find({"restaurant_id": request.restaurant_id}))
-    user_ids = list({r["user_id"] for r in food_reviews})
-    user_map = {}
-    if user_ids:
-        users = users_collection.find({"user_id": {"$in": user_ids}}, {"user_id": 1, "first_name": 1, "avatar": 1})
-        user_map = {u["user_id"]: {"first_name": u.get("first_name", ""), "avatar": u.get("avatar")} for u in users}
-    for review in food_reviews:
-        review.pop("_id", None)
-        info = user_map.get(review["user_id"], {})
-        review["first_name"] = info.get("first_name", "")
-        if info.get("avatar"):
-            review["avatar"] = info["avatar"]
-    return food_reviews
-
-
-@service
-def get_food_review_by_id(food_review_id: str) -> dict | None:
-    """Returns a single food review by its ID."""
-    collection = get_mongo_collection(collection_name=settings.mongo_food_reviews_collection)
-    review = collection.find_one({"food_review_id": food_review_id})
-    if review:
-        assert isinstance(review, dict), "Make sure the review is of type dictionary."
-        review.pop("_id", None)
-    return review
-
-
-@service
-def delete_food_review(request: DeleteFoodReviewRequest) -> bool:
-    """
-    Deletes a food review by its ID and all associated images.
-    """
-    collection = get_mongo_collection(collection_name=settings.mongo_food_reviews_collection)
-    result = collection.delete_one({"food_review_id": request.food_review_id})
-    if result.deleted_count > 0:
-        images_collection = get_mongo_collection(collection_name=settings.mongo_images_collection)
-        images_collection.delete_many({"food_review_id": request.food_review_id})
-        return True
-    return False
-
-
-@service
-def update_food_review(request: UpdateFoodReviewRequest) -> bool:
-    """Updates a food review with the provided fields."""
-    collection = get_mongo_collection(collection_name=settings.mongo_food_reviews_collection)
-    updates = {}
-    for field in ("food_name", "price", "rating", "comment", "visited_at"):
-        value = getattr(request, field)
-        if value is not None:
-            updates[field] = value.isoformat() if hasattr(value, "isoformat") else value
-    if not updates:
-        return False
-    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
-    result = collection.update_one(
-        {"food_review_id": request.food_review_id},
-        {"$set": updates},
-    )
-    return result.modified_count > 0
-
-
-@service
-def get_images_by_review(review_id: str) -> list[dict]:
-    """
-    Returns all images for a given restaurant review.
-    """
-    collection = get_mongo_collection(collection_name=settings.mongo_images_collection)
-    images = list(collection.find({"review_id": review_id}))
-    for img in images:
-        img.pop("_id", None)
-    return images
-
-
-@service
-def get_images_by_food_review(food_review_id: str) -> list[dict]:
-    """
-    Returns all images for a given food review.
-    """
-    collection = get_mongo_collection(collection_name=settings.mongo_images_collection)
-    images = list(collection.find({"food_review_id": food_review_id}))
-    for img in images:
-        img.pop("_id", None)
-    return images
-
-
-@service
-def get_food_review_stats(restaurant_ids: list[str], user_id: str | None = None) -> list[dict]:
-    """
-    Returns food review count and average rating for each given restaurant.
-    If user_id is provided, also returns the user's most recent visited_at date
-    across both restaurant reviews and food reviews.
-    """
-    food_collection = get_mongo_collection(collection_name=settings.mongo_food_reviews_collection)
-    pipeline = [
-        {"$match": {"restaurant_id": {"$in": restaurant_ids}}},
-        {"$group": {
-            "_id": "$restaurant_id",
-            "count": {"$sum": 1},
-            "avg_rating": {"$avg": "$rating"},
-        }},
-    ]
-    results = list(food_collection.aggregate(pipeline))
-    stats = {
-        r["_id"]: {
-            "restaurant_id": r["_id"],
-            "count": r["count"],
-            "avg_rating": round(r["avg_rating"], 1) if r["avg_rating"] is not None else None,
-            "last_visited": None,
+    @service
+    def get_food_review_stats(self, restaurant_ids: list[str], user_id: str | None = None) -> list[dict]:
+        """Return food review count, average rating, and the user's last visit date."""
+        stats = {
+            r["restaurant_id"]: {
+                "restaurant_id": r["restaurant_id"],
+                "count": r["count"],
+                "avg_rating": round(r["avg_rating"], 1) if r["avg_rating"] is not None else None,
+                "last_visited": None,
+            }
+            for r in self._uow.food_reviews.rating_stats(restaurant_ids)
         }
-        for r in results
-    }
+        for rid in restaurant_ids:
+            if rid not in stats:
+                stats[rid] = {"restaurant_id": rid, "count": 0, "avg_rating": None, "last_visited": None}
 
-    # Ensure all requested restaurants appear in output
-    for rid in restaurant_ids:
-        if rid not in stats:
-            stats[rid] = {"restaurant_id": rid, "count": 0, "avg_rating": None, "last_visited": None}
+        if user_id:
+            for r in self._uow.reviews.max_visited_at_by_restaurant(user_id, restaurant_ids):
+                if r["restaurant_id"] in stats:
+                    stats[r["restaurant_id"]]["last_visited"] = (
+                        str(r["last_visited"]) if r["last_visited"] else None
+                    )
+            for r in self._uow.food_reviews.max_visited_at_by_restaurant(user_id, restaurant_ids):
+                rid = r["restaurant_id"]
+                if rid in stats:
+                    new_val = str(r["last_visited"]) if r["last_visited"] else None
+                    existing = stats[rid]["last_visited"]
+                    if new_val and (not existing or new_val > existing):
+                        stats[rid]["last_visited"] = new_val
 
-    # Find user's last visited date from both review types
-    if user_id:
-        reviews_collection = get_mongo_collection(collection_name=settings.mongo_reviews_collection)
-        user_review_pipeline = [
-            {"$match": {
-                "$or": [{"user_id": user_id}, {"coauthor_ids": user_id}],
-                "restaurant_id": {"$in": restaurant_ids},
-                "visited_at": {"$ne": None},
-            }},
-            {"$group": {"_id": "$restaurant_id", "last_visited": {"$max": "$visited_at"}}},
-        ]
-        for r in reviews_collection.aggregate(user_review_pipeline):
-            if r["_id"] in stats:
-                stats[r["_id"]]["last_visited"] = str(r["last_visited"]) if r["last_visited"] else None
+        return list(stats.values())
 
-        user_food_pipeline = [
-            {"$match": {"user_id": user_id, "restaurant_id": {"$in": restaurant_ids}, "visited_at": {"$ne": None}}},
-            {"$group": {"_id": "$restaurant_id", "last_visited": {"$max": "$visited_at"}}},
-        ]
-        for r in food_collection.aggregate(user_food_pipeline):
-            rid = r["_id"]
-            if rid in stats:
-                new_val = str(r["last_visited"]) if r["last_visited"] else None
-                existing = stats[rid]["last_visited"]
-                if new_val and (not existing or new_val > existing):
-                    stats[rid]["last_visited"] = new_val
+    @service
+    def get_images_by_review(self, review_id: str) -> list[dict]:
+        """Return all images for a restaurant review."""
+        return self._uow.images.list_by_review(review_id)
 
-    return list(stats.values())
+
+class FoodReviewService:
+    """Food reviews scoped to a restaurant review."""
+
+    def __init__(self, uow: UnitOfWork):
+        self._uow = uow
+
+    @service
+    def create_food_review(self, request: CreateFoodReviewRequest, user_id: str) -> str | None:
+        """Create a food review. Requires an owning/coauthored parent review."""
+        if not self._uow.users.exists(user_id):
+            raise ValueError("User ID not found in the db. Please set the user first.")
+
+        parent_review = self._uow.reviews.find_authored(
+            request.review_id, request.restaurant_id, user_id
+        )
+        if not parent_review:
+            raise ValueError("You must submit a restaurant review before adding a food review.")
+
+        food_review = FoodReview(**request.model_dump(exclude={"images"}), user_id=user_id)
+        if not self._uow.food_reviews.add(food_review):
+            return None
+
+        for img in request.images:
+            if len(img) <= settings.max_image_bytes:
+                self._uow.images.add_food_review_image(
+                    FoodReviewImage(food_review_id=food_review.food_review_id, data=img)
+                )
+
+        return food_review.food_review_id
+
+    @service
+    def get_food_reviews_by_restaurant(self, request: GetFoodReviewsByRestaurantRequest) -> list[dict]:
+        """Return all food reviews for a restaurant, enriched with reviewer info."""
+        food_reviews = self._uow.food_reviews.list_for_restaurant(request.restaurant_id)
+        user_map = _profile_map(
+            self._uow.users.get_profiles(list({r["user_id"] for r in food_reviews}))
+        )
+        for review in food_reviews:
+            info = user_map.get(review["user_id"], {})
+            review["first_name"] = info.get("first_name", "")
+            if info.get("avatar"):
+                review["avatar"] = info["avatar"]
+        return food_reviews
+
+    @service
+    def get_food_review_by_id(self, food_review_id: str) -> dict | None:
+        """Return a single food review by id."""
+        return self._uow.food_reviews.get(food_review_id)
+
+    @service
+    def delete_food_review(self, request: DeleteFoodReviewRequest) -> bool:
+        """Delete a food review and its images."""
+        if not self._uow.food_reviews.delete(request.food_review_id):
+            return False
+        self._uow.images.delete_by_food_review(request.food_review_id)
+        return True
+
+    @service
+    def update_food_review(self, request: UpdateFoodReviewRequest) -> bool:
+        """Update a food review with the provided fields."""
+        updates: dict = {}
+        for field in ("food_name", "price", "rating", "comment", "visited_at"):
+            value = getattr(request, field)
+            if value is not None:
+                updates[field] = value.isoformat() if hasattr(value, "isoformat") else value
+        if not updates:
+            return False
+        updates["updated_at"] = _now_iso()
+        return self._uow.food_reviews.update_fields(request.food_review_id, updates)
+
+    @service
+    def get_images_by_food_review(self, food_review_id: str) -> list[dict]:
+        """Return all images for a food review."""
+        return self._uow.images.list_by_food_review(food_review_id)

@@ -74,8 +74,10 @@ export default function AddWishlistModal({
         { params: { query: query.trim() } },
       )
       setResults(data.results)
-    } catch {
+    } catch (err) {
+      console.warn('Restaurant search failed:', err)
       setResults([])
+      setError(t.searchFailed)
     } finally {
       setSearching(false)
       setHasSearched(true)
@@ -212,7 +214,7 @@ export default function AddWishlistModal({
                     </Pressable>
                   )}
                 />
-              ) : hasSearched && results.length === 0 ? (
+              ) : hasSearched && results.length === 0 && !error ? (
                 <View style={styles.centered}>
                   <Text style={styles.emptyText}>{t.noResults}</Text>
                 </View>

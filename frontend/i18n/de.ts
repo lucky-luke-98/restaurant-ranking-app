@@ -85,6 +85,7 @@ const de: Translations = {
   searchPlaceholder: 'Nach Restaurant suchen...',
   noResults: 'Keine Ergebnisse gefunden',
   searchInstruction: 'Restaurantname eingeben zum Suchen',
+  searchFailed: 'Die Restaurantsuche ist vorübergehend nicht verfügbar. Bitte versuche es später erneut.',
   addingRestaurant: 'Restaurant wird hinzugef\u00FCgt...',
   failedCreateRestaurant: 'Restaurant konnte nicht erstellt werden',
 

@@ -83,6 +83,7 @@ const en = {
   searchPlaceholder: 'Search for a restaurant...',
   noResults: 'No results found',
   searchInstruction: 'Type a restaurant name to search',
+  searchFailed: 'Restaurant search is temporarily unavailable. Please try again later.',
   addingRestaurant: 'Adding restaurant...',
   failedCreateRestaurant: 'Failed to create restaurant',
 

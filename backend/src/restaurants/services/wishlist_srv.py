@@ -1,6 +1,6 @@
+"""Wishlist-entries business logic."""
 
-from src.config import settings
-from src.db.mongo_client import get_mongo_collection
+from src.unit_of_work import UnitOfWork
 from src.restaurants.models import (
     CreateWishlistEntryRequest,
     GetWishlistByUserRequest,
@@ -8,76 +8,46 @@ from src.restaurants.models import (
     DeleteWishlistEntryRequest,
     WishlistEntry,
 )
-from src.users.services import verify_user_entry
 from src.utils.wrappers import service
 
 
-@service
-def create_wishlist_entry(request: CreateWishlistEntryRequest, user_id: str) -> str | None:
-    """
-    Creates one restaurant wishlist entry based on provided information.
-    """
-    if not verify_user_entry(user_id):
-        raise ValueError("User ID not found in the db. Please set the user first.")
+class WishlistService:
+    """Manages a user's wishlist of restaurants to visit."""
 
-    collection = get_mongo_collection(collection_name=settings.mongo_wishlist_collection)
-    wishlist_entry = WishlistEntry(**request.model_dump(), user_id=user_id)
-    result = collection.insert_one(wishlist_entry.model_dump())
-    if result.acknowledged:
-        return wishlist_entry.entry_id
-    return None
+    def __init__(self, uow: UnitOfWork):
+        self._uow = uow
 
+    @service
+    def create_wishlist_entry(self, request: CreateWishlistEntryRequest, user_id: str) -> str | None:
+        """Create one wishlist entry."""
+        if not self._uow.users.exists(user_id):
+            raise ValueError("User ID not found in the db. Please set the user first.")
 
-@service
-def get_wishlist_by_user(request: GetWishlistByUserRequest) -> list[dict]:
-    """
-    Returns all wishlist entries for a given user.
-    """
-    collection = get_mongo_collection(collection_name=settings.mongo_wishlist_collection)
-    entries = list(collection.find({"user_id": request.user_id}))
-    for entry in entries:
-        entry.pop("_id", None)
-    return entries
+        entry = WishlistEntry(**request.model_dump(), user_id=user_id)
+        return entry.entry_id if self._uow.wishlist.add(entry) else None
 
+    @service
+    def get_wishlist_by_user(self, request: GetWishlistByUserRequest) -> list[dict]:
+        """Return all wishlist entries for a given user."""
+        return self._uow.wishlist.list_by_user(request.user_id)
 
-@service
-def get_wishlist_entry_by_id(entry_id: str) -> dict | None:
-    """Returns a single wishlist entry by its ID."""
-    collection = get_mongo_collection(collection_name=settings.mongo_wishlist_collection)
-    entry = collection.find_one({"entry_id": entry_id})
-    if entry:
-        entry.pop("_id", None)
-    return entry
+    @service
+    def get_wishlist_entry_by_id(self, entry_id: str) -> dict | None:
+        """Return a single wishlist entry by id."""
+        return self._uow.wishlist.get(entry_id)
 
+    @service
+    def delete_wishlist_entry(self, request: DeleteWishlistEntryRequest) -> bool:
+        """Delete a wishlist entry by id."""
+        return self._uow.wishlist.delete(request.entry_id)
 
-@service
-def delete_wishlist_entry(request: DeleteWishlistEntryRequest) -> bool:
-    """
-    Deletes a wishlist entry by its ID.
-    """
-    collection = get_mongo_collection(collection_name=settings.mongo_wishlist_collection)
-    result = collection.delete_one({"entry_id": request.entry_id})
-    return result.deleted_count > 0
+    @service
+    def update_wishlist_entry(self, request: UpdateWishlistEntryRequest) -> bool:
+        """Update the comment on a wishlist entry (empty/None clears it)."""
+        comment = request.comment.strip() if request.comment else None
+        return self._uow.wishlist.update_comment(request.entry_id, comment)
 
-
-@service
-def update_wishlist_entry(request: UpdateWishlistEntryRequest) -> bool:
-    """
-    Updates the comment on a wishlist entry. Pass comment=None or empty string to clear it.
-    """
-    collection = get_mongo_collection(collection_name=settings.mongo_wishlist_collection)
-    comment = request.comment.strip() if request.comment else None
-    result = collection.update_one(
-        {"entry_id": request.entry_id},
-        {"$set": {"comment": comment or None}},
-    )
-    return result.modified_count > 0
-
-
-def delete_wishlist_entry_by_user_and_restaurant(user_id: str, restaurant_id: str) -> bool:
-    """
-    Deletes a wishlist entry by user ID and restaurant ID.
-    """
-    collection = get_mongo_collection(collection_name=settings.mongo_wishlist_collection)
-    result = collection.delete_one({"user_id": user_id, "restaurant_id": restaurant_id})
-    return result.deleted_count > 0
+    @service
+    def delete_wishlist_entry_by_user_and_restaurant(self, user_id: str, restaurant_id: str) -> bool:
+        """Delete a wishlist entry by user id and restaurant id."""
+        return self._uow.wishlist.delete_by_user_and_restaurant(user_id, restaurant_id)
