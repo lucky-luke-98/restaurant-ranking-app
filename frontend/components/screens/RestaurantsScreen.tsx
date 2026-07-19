@@ -48,6 +48,7 @@ interface ListEntry {
   entry_id: string
   restaurant_id: string
   comment?: string | null
+  created_at?: string | null
 }
 
 type Tab = 'visited' | 'wishlist'
@@ -140,6 +141,13 @@ export default function RestaurantsScreen() {
     () => new Set(visitedEntries.map((e) => e.restaurant_id)),
     [visitedEntries],
   )
+  const visitedCreatedAt = useMemo(() => {
+    const map: Record<string, string> = {}
+    visitedEntries.forEach((e) => {
+      if (e.created_at) map[e.restaurant_id] = e.created_at
+    })
+    return map
+  }, [visitedEntries])
   const wishlistIds = useMemo(
     () => new Set(wishlistEntries.map((e) => e.restaurant_id)),
     [wishlistEntries],
@@ -173,14 +181,23 @@ export default function RestaurantsScreen() {
       })
       if (activeTab === 'visited') {
         filtered.sort((a, b) => {
-          const aDate = foodStats[a.restaurant_id]?.last_visited ?? ''
-          const bDate = foodStats[b.restaurant_id]?.last_visited ?? ''
+          // Sort by latest food-review date; fall back to when the restaurant
+          // was added to the visited list (date part) so review-less entries
+          // are ordered by date added instead of always sinking to the bottom.
+          const aDate =
+            foodStats[a.restaurant_id]?.last_visited ??
+            visitedCreatedAt[a.restaurant_id]?.slice(0, 10) ??
+            ''
+          const bDate =
+            foodStats[b.restaurant_id]?.last_visited ??
+            visitedCreatedAt[b.restaurant_id]?.slice(0, 10) ??
+            ''
           return bDate.localeCompare(aDate)
         })
       }
       return filtered
     },
-    [restaurants, visitedIds, wishlistIds, activeTab, filterFrom, filterTo, foodStats, filterName, filterCuisine],
+    [restaurants, visitedIds, wishlistIds, activeTab, filterFrom, filterTo, foodStats, visitedCreatedAt, filterName, filterCuisine],
   )
 
   const wishlistRestaurants = useMemo(

@@ -267,14 +267,22 @@ function LeafletMap({
   const [modules, setModules] = useState<any>(null)
 
   useEffect(() => {
-    Promise.all([import('react-leaflet'), import('leaflet')]).then(([rl, L]) => {
-      if (!document.querySelector('link[href*="leaflet"]')) {
-        const link = document.createElement('link')
-        link.rel = 'stylesheet'
-        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
-        document.head.appendChild(link)
+    Promise.all([
+      import('react-leaflet'),
+      import('leaflet'),
+      import('react-leaflet-cluster'),
+    ]).then(([rl, L, rlc]) => {
+      const ensureCss = (href: string) => {
+        if (!document.querySelector(`link[href="${href}"]`)) {
+          const link = document.createElement('link')
+          link.rel = 'stylesheet'
+          link.href = href
+          document.head.appendChild(link)
+        }
       }
-      setModules({ rl, L })
+      ensureCss('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css')
+      ensureCss('https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css')
+      setModules({ rl, L, MarkerClusterGroup: rlc.default })
       setLeafletReady(true)
     })
   }, [])
@@ -317,6 +325,7 @@ function LeafletMap({
 
   const { MapContainer, TileLayer, Marker, Popup } = modules.rl
   const L = modules.L
+  const MarkerClusterGroup = modules.MarkerClusterGroup
 
   const makeIcon = (cuisine: string, background: string) =>
     L.divIcon({
@@ -326,6 +335,21 @@ function LeafletMap({
       iconAnchor: [19, 19],
       popupAnchor: [0, -22],
     })
+
+  const makeClusterIcon = (background: string) => (cluster: any) => {
+    const count = cluster.getChildCount()
+    const size = count < 10 ? 34 : count < 100 ? 40 : 48
+    const html = `
+      <div style="
+        width:${size}px;height:${size}px;border-radius:${size / 2}px;
+        background:${background};color:#fff;
+        display:flex;align-items:center;justify-content:center;
+        font-weight:700;font-size:${count < 100 ? 13 : 12}px;font-family:inherit;
+        border:2px solid rgba(255,255,255,0.9);
+        box-shadow:0 2px 6px rgba(0,0,0,0.3);
+      ">${count}</div>`
+    return L.divIcon({ html, className: '', iconSize: [size, size] })
+  }
 
   const allMarkers = [...visitedRestaurants, ...wishlistRestaurants]
 
@@ -372,8 +396,30 @@ function LeafletMap({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>'
         url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
       />
-      {visitedRestaurants.map((r) => renderMarker(r, 'visited'))}
-      {wishlistRestaurants.map((r) => renderMarker(r, 'wishlist'))}
+      {visitedRestaurants.length > 0 && (
+        <MarkerClusterGroup
+          key={`visited-${colors.success}-${visitedRestaurants.length}`}
+          iconCreateFunction={makeClusterIcon(colors.success)}
+          maxClusterRadius={60}
+          showCoverageOnHover={false}
+          spiderfyOnMaxZoom
+          chunkedLoading
+        >
+          {visitedRestaurants.map((r) => renderMarker(r, 'visited'))}
+        </MarkerClusterGroup>
+      )}
+      {wishlistRestaurants.length > 0 && (
+        <MarkerClusterGroup
+          key={`wishlist-${colors.warning}-${wishlistRestaurants.length}`}
+          iconCreateFunction={makeClusterIcon(colors.warning)}
+          maxClusterRadius={60}
+          showCoverageOnHover={false}
+          spiderfyOnMaxZoom
+          chunkedLoading
+        >
+          {wishlistRestaurants.map((r) => renderMarker(r, 'wishlist'))}
+        </MarkerClusterGroup>
+      )}
     </MapContainer>
   )
 }

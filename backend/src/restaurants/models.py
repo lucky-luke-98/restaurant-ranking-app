@@ -67,6 +67,7 @@ class VisitedEntry(BaseModel):
     entry_id: str = Field(default_factory=lambda: str(uuid4()))
     user_id: str
     restaurant_id: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # ==================== requests ==================== #
