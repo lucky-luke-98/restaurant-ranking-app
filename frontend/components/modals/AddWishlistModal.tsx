@@ -17,6 +17,7 @@ import { createStyles } from './AddWishlistModal.styles'
 import { useWebModalEffects } from '@/hooks/useWebModalEffects'
 import { MagnifyingGlassIcon, CaretLeftIcon } from 'phosphor-react-native'
 import { CUISINE_TYPES, CUISINE_ICONS, CUISINE_LABEL_KEYS, type CuisineType } from '@/constants/CuisineTypes'
+import PinDropMap from '@/components/maps/PinDropMap'
 
 interface PlaceResult {
   google_place_id: string
@@ -26,11 +27,14 @@ interface PlaceResult {
 
 const WISHLIST_COMMENT_MAX = 400
 
+type Mode = 'search' | 'manual'
+
 interface AddWishlistModalProps {
   visible: boolean
   onClose: () => void
   onCreated: () => void
   onSubmit: (googlePlaceId: string, cuisineType: CuisineType, comment: string) => Promise<void>
+  onSubmitManual: (name: string, latitude: number, longitude: number, cuisineType: CuisineType, comment: string) => Promise<void>
 }
 
 export default function AddWishlistModal({
@@ -38,11 +42,13 @@ export default function AddWishlistModal({
   onClose,
   onCreated,
   onSubmit,
+  onSubmitManual,
 }: AddWishlistModalProps) {
   const { t } = useTranslation()
   const colors = useThemeColors()
   const styles = useMemo(() => createStyles(colors), [colors])
   const { sheetStyle } = useWebModalEffects(visible)
+  const [mode, setMode] = useState<Mode>('search')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<PlaceResult[]>([])
   const [searching, setSearching] = useState(false)
@@ -51,14 +57,23 @@ export default function AddWishlistModal({
   const [error, setError] = useState<string | null>(null)
   const [selectedPlace, setSelectedPlace] = useState<PlaceResult | null>(null)
   const [comment, setComment] = useState('')
+  const [manualName, setManualName] = useState('')
+  const [manualLat, setManualLat] = useState<number | null>(null)
+  const [manualLng, setManualLng] = useState<number | null>(null)
+  const [manualDetailsConfirmed, setManualDetailsConfirmed] = useState(false)
 
   useEffect(() => {
     if (!visible) {
+      setMode('search')
       setQuery('')
       setResults([])
       setHasSearched(false)
       setSelectedPlace(null)
       setComment('')
+      setManualName('')
+      setManualLat(null)
+      setManualLng(null)
+      setManualDetailsConfirmed(false)
       setError(null)
     }
   }, [visible])
@@ -98,12 +113,31 @@ export default function AddWishlistModal({
     }
   }
 
+  const handleSelectManualCuisine = async (cuisineType: CuisineType) => {
+    if (manualLat == null || manualLng == null) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      await onSubmitManual(manualName.trim(), manualLat, manualLng, cuisineType, comment.trim())
+      onCreated()
+    } catch (err: any) {
+      setError(err.message ?? t.addressNotFound)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const handleClose = () => {
+    setMode('search')
     setQuery('')
     setResults([])
     setHasSearched(false)
     setSelectedPlace(null)
     setComment('')
+    setManualName('')
+    setManualLat(null)
+    setManualLng(null)
+    setManualDetailsConfirmed(false)
     setError(null)
     onClose()
   }
@@ -111,6 +145,19 @@ export default function AddWishlistModal({
   const handleBackToSearch = () => {
     setSelectedPlace(null)
     setComment('')
+    setError(null)
+  }
+
+  const handleBackFromManual = () => {
+    if (manualDetailsConfirmed) {
+      setManualDetailsConfirmed(false)
+      setError(null)
+      return
+    }
+    setMode('search')
+    setManualName('')
+    setManualLat(null)
+    setManualLng(null)
     setError(null)
   }
 
@@ -127,6 +174,11 @@ export default function AddWishlistModal({
                 <CaretLeftIcon size={18} color={colors.text} weight="bold" />
                 <Text style={styles.title}>{selectedPlace.name}</Text>
               </Pressable>
+            ) : mode === 'manual' ? (
+              <Pressable onPress={handleBackFromManual} hitSlop={12} style={styles.backRow}>
+                <CaretLeftIcon size={18} color={colors.text} weight="bold" />
+                <Text style={styles.title}>{manualDetailsConfirmed ? manualName : t.manualEntryTitle}</Text>
+              </Pressable>
             ) : (
               <Text style={styles.title}>{t.addRestaurantTitle}</Text>
             )}
@@ -137,7 +189,41 @@ export default function AddWishlistModal({
 
           {error && <Text style={styles.error}>{error}</Text>}
 
-          {selectedPlace ? (
+          {mode === 'manual' && !manualDetailsConfirmed && (
+            <ScrollView keyboardShouldPersistTaps="handled">
+              <View style={styles.manualForm}>
+                <Text style={styles.fieldLabel}>{t.restaurantNameLabel}</Text>
+                <TextInput
+                  style={styles.searchInput}
+                  value={manualName}
+                  onChangeText={setManualName}
+                  placeholder={t.restaurantNamePlaceholder}
+                  placeholderTextColor={colors.textPlaceholder}
+                />
+                <Text style={styles.fieldLabel}>{t.dropPinInstruction}</Text>
+                <PinDropMap
+                  latitude={manualLat}
+                  longitude={manualLng}
+                  onChange={(lat, lng) => {
+                    setManualLat(lat)
+                    setManualLng(lng)
+                  }}
+                />
+                <Pressable
+                  style={[
+                    styles.continueButton,
+                    (!manualName.trim() || manualLat == null || manualLng == null) && styles.continueButtonDisabled,
+                  ]}
+                  onPress={() => setManualDetailsConfirmed(true)}
+                  disabled={!manualName.trim() || manualLat == null || manualLng == null}
+                >
+                  <Text style={styles.continueButtonText}>{t.continueButton}</Text>
+                </Pressable>
+              </View>
+            </ScrollView>
+          )}
+
+          {(selectedPlace || (mode === 'manual' && manualDetailsConfirmed)) ? (
             <ScrollView keyboardShouldPersistTaps="handled">
               <Text style={styles.fieldLabel}>{t.wishlistCommentLabel}</Text>
               <TextInput
@@ -161,7 +247,7 @@ export default function AddWishlistModal({
                     <Pressable
                       key={ct}
                       style={({ pressed }) => [styles.cuisineChip, pressed && styles.cuisineChipPressed]}
-                      onPress={() => handleSelectCuisine(ct)}
+                      onPress={() => (mode === 'manual' ? handleSelectManualCuisine(ct) : handleSelectCuisine(ct))}
                       disabled={submitting}
                     >
                       <Icon size={20} color={colors.text} weight="duotone" />
@@ -171,7 +257,7 @@ export default function AddWishlistModal({
                 })}
               </View>
             </ScrollView>
-          ) : (
+          ) : mode === 'search' ? (
             <>
               <View style={styles.searchRow}>
                 <TextInput
@@ -192,6 +278,10 @@ export default function AddWishlistModal({
                   <MagnifyingGlassIcon size={20} color={colors.text} weight="bold" />
                 </Pressable>
               </View>
+
+              <Pressable onPress={() => setMode('manual')} hitSlop={8}>
+                <Text style={styles.manualLink}>{t.enterManuallyOption}</Text>
+              </Pressable>
 
               {searching ? (
                 <View style={styles.centered}>
@@ -224,7 +314,7 @@ export default function AddWishlistModal({
                 </View>
               )}
             </>
-          )}
+          ) : null}
 
           {submitting && (
             <View style={styles.submittingOverlay}>

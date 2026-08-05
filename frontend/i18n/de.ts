@@ -109,6 +109,16 @@ const de: Translations = {
   wishlistEmpty: 'Deine Wunschliste ist leer',
   failedAddRestaurant: 'Restaurant konnte nicht hinzugef\u00FCgt werden',
 
+  // Manual Entry
+  enterManuallyOption: 'Manuell eingeben',
+  enterManuallySubtitle: 'F\u00FCge einen Ort hinzu, den Google nicht findet',
+  manualEntryTitle: 'Manuell hinzuf\u00FCgen',
+  restaurantNameLabel: 'Restaurantname',
+  restaurantNamePlaceholder: 'z.B. "Mare Atlantico Delikatessen"',
+  dropPinInstruction: 'Tippe auf die Karte, um den Ort zu markieren',
+  continueButton: 'Weiter',
+  addressNotFound: 'F\u00FCr diesen Ort konnte keine Adresse ermittelt werden. Bitte versuche eine andere Stelle.',
+
   // Edit
   edit: 'Bearbeiten',
   edited: 'bearbeitet',

@@ -15,8 +15,9 @@ import { useTranslation } from '@/services/LanguageContext'
 import { useThemeColors } from '@/hooks/useThemeColors'
 import { createStyles } from './AddVisitedModal.styles'
 import { useWebModalEffects } from '@/hooks/useWebModalEffects'
-import { MagnifyingGlassIcon, HeartIcon, CaretLeftIcon } from 'phosphor-react-native'
+import { MagnifyingGlassIcon, HeartIcon, CaretLeftIcon, PencilSimpleIcon } from 'phosphor-react-native'
 import { CUISINE_TYPES, CUISINE_ICONS, CUISINE_LABEL_KEYS, type CuisineType } from '@/constants/CuisineTypes'
+import PinDropMap from '@/components/maps/PinDropMap'
 
 interface PlaceResult {
   google_place_id: string
@@ -32,7 +33,7 @@ interface WishlistRestaurant {
   city: string
 }
 
-type Mode = 'choose' | 'wishlist' | 'search'
+type Mode = 'choose' | 'wishlist' | 'search' | 'manual'
 
 interface AddVisitedModalProps {
   visible: boolean
@@ -41,6 +42,7 @@ interface AddVisitedModalProps {
   wishlistRestaurants: WishlistRestaurant[]
   onSelectFromWishlist: (restaurantId: string) => Promise<void>
   onSubmitFromSearch: (googlePlaceId: string, cuisineType: CuisineType) => Promise<void>
+  onSubmitManual: (name: string, latitude: number, longitude: number, cuisineType: CuisineType) => Promise<void>
 }
 
 export default function AddVisitedModal({
@@ -50,6 +52,7 @@ export default function AddVisitedModal({
   wishlistRestaurants,
   onSelectFromWishlist,
   onSubmitFromSearch,
+  onSubmitManual,
 }: AddVisitedModalProps) {
   const { t } = useTranslation()
   const colors = useThemeColors()
@@ -63,6 +66,10 @@ export default function AddVisitedModal({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedPlace, setSelectedPlace] = useState<PlaceResult | null>(null)
+  const [manualName, setManualName] = useState('')
+  const [manualLat, setManualLat] = useState<number | null>(null)
+  const [manualLng, setManualLng] = useState<number | null>(null)
+  const [manualDetailsConfirmed, setManualDetailsConfirmed] = useState(false)
 
   useEffect(() => {
     if (!visible) {
@@ -71,6 +78,10 @@ export default function AddVisitedModal({
       setResults([])
       setHasSearched(false)
       setSelectedPlace(null)
+      setManualName('')
+      setManualLat(null)
+      setManualLng(null)
+      setManualDetailsConfirmed(false)
       setError(null)
     }
   }, [visible])
@@ -114,6 +125,20 @@ export default function AddVisitedModal({
     }
   }
 
+  const handleSelectManualCuisine = async (cuisineType: CuisineType) => {
+    if (manualLat == null || manualLng == null) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      await onSubmitManual(manualName.trim(), manualLat, manualLng, cuisineType)
+      onCreated()
+    } catch (err: any) {
+      setError(err.message ?? t.addressNotFound)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   const handleSelectWishlist = async (restaurantId: string) => {
     setSubmitting(true)
     setError(null)
@@ -133,6 +158,10 @@ export default function AddVisitedModal({
     setResults([])
     setHasSearched(false)
     setSelectedPlace(null)
+    setManualName('')
+    setManualLat(null)
+    setManualLng(null)
+    setManualDetailsConfirmed(false)
     setError(null)
     onClose()
   }
@@ -143,10 +172,19 @@ export default function AddVisitedModal({
       setError(null)
       return
     }
+    if (mode === 'manual' && manualDetailsConfirmed) {
+      setManualDetailsConfirmed(false)
+      setError(null)
+      return
+    }
     setMode('choose')
     setQuery('')
     setResults([])
     setHasSearched(false)
+    setManualName('')
+    setManualLat(null)
+    setManualLng(null)
+    setManualDetailsConfirmed(false)
     setError(null)
   }
 
@@ -159,7 +197,13 @@ export default function AddVisitedModal({
         <View style={[styles.sheet, sheetStyle]}>
           <View style={styles.header}>
             <Text style={styles.title}>
-              {mode === 'choose' ? t.addVisitedTitle : mode === 'wishlist' ? t.fromWishlistTitle : t.searchRestaurantTitle}
+              {mode === 'choose'
+                ? t.addVisitedTitle
+                : mode === 'wishlist'
+                  ? t.fromWishlistTitle
+                  : mode === 'manual'
+                    ? t.manualEntryTitle
+                    : t.searchRestaurantTitle}
             </Text>
             {mode !== 'choose' ? (
               <Pressable onPress={handleBack} hitSlop={12}>
@@ -192,6 +236,13 @@ export default function AddVisitedModal({
                 <View style={styles.chooseTextContainer}>
                   <Text style={styles.chooseOptionTitle}>{t.searchNewOption}</Text>
                   <Text style={styles.chooseOptionSubtitle}>{t.findOnGoogleMaps}</Text>
+                </View>
+              </Pressable>
+              <Pressable style={styles.chooseOption} onPress={() => setMode('manual')}>
+                <PencilSimpleIcon size={24} color={colors.text} weight="bold" />
+                <View style={styles.chooseTextContainer}>
+                  <Text style={styles.chooseOptionTitle}>{t.enterManuallyOption}</Text>
+                  <Text style={styles.chooseOptionSubtitle}>{t.enterManuallySubtitle}</Text>
                 </View>
               </Pressable>
             </View>
@@ -290,6 +341,63 @@ export default function AddVisitedModal({
                       key={ct}
                       style={({ pressed }) => [styles.cuisineChip, pressed && styles.cuisineChipPressed]}
                       onPress={() => handleSelectCuisine(ct)}
+                      disabled={submitting}
+                    >
+                      <Icon size={20} color={colors.text} weight="duotone" />
+                      <Text style={styles.cuisineChipText}>{t[labelKey] as string}</Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
+            </ScrollView>
+          )}
+
+          {mode === 'manual' && !manualDetailsConfirmed && (
+            <ScrollView keyboardShouldPersistTaps="handled">
+              <View style={styles.manualForm}>
+                <Text style={styles.manualFieldLabel}>{t.restaurantNameLabel}</Text>
+                <TextInput
+                  style={styles.searchInput}
+                  value={manualName}
+                  onChangeText={setManualName}
+                  placeholder={t.restaurantNamePlaceholder}
+                  placeholderTextColor={colors.textPlaceholder}
+                />
+                <Text style={styles.manualFieldLabel}>{t.dropPinInstruction}</Text>
+                <PinDropMap
+                  latitude={manualLat}
+                  longitude={manualLng}
+                  onChange={(lat, lng) => {
+                    setManualLat(lat)
+                    setManualLng(lng)
+                  }}
+                />
+                <Pressable
+                  style={[
+                    styles.continueButton,
+                    (!manualName.trim() || manualLat == null || manualLng == null) && styles.continueButtonDisabled,
+                  ]}
+                  onPress={() => setManualDetailsConfirmed(true)}
+                  disabled={!manualName.trim() || manualLat == null || manualLng == null}
+                >
+                  <Text style={styles.continueButtonText}>{t.continueButton}</Text>
+                </Pressable>
+              </View>
+            </ScrollView>
+          )}
+
+          {mode === 'manual' && manualDetailsConfirmed && (
+            <ScrollView keyboardShouldPersistTaps="handled">
+              <Text style={styles.cuisinePrompt}>{t.selectCuisineType}</Text>
+              <View style={styles.cuisineGrid}>
+                {CUISINE_TYPES.map((ct) => {
+                  const Icon = CUISINE_ICONS[ct]
+                  const labelKey = CUISINE_LABEL_KEYS[ct] as keyof typeof t
+                  return (
+                    <Pressable
+                      key={ct}
+                      style={({ pressed }) => [styles.cuisineChip, pressed && styles.cuisineChipPressed]}
+                      onPress={() => handleSelectManualCuisine(ct)}
                       disabled={submitting}
                     >
                       <Icon size={20} color={colors.text} weight="duotone" />

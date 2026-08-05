@@ -144,6 +144,8 @@ async def update_review(
         if not review:
             raise HTTPException(status_code=404, detail="Review not found.")
         enforce_owner_or_coauthor(current_user, review)
+        if request.coauthor_ids is not None and current_user["user_id"] != review["user_id"]:
+            raise HTTPException(status_code=403, detail="Only the review's author can manage coauthors.")
         success = await to_thread(reviews.update_restaurant_review, request=request)
         return UpdateRestaurantReviewResponse(success=success)
     except HTTPException:

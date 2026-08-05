@@ -56,6 +56,8 @@ class ReviewService:
         """Create a restaurant review, move author + coauthors to visited, store images."""
         if not self._uow.users.exists(user_id):
             raise ValueError("User ID not found in the db. Please set the user first.")
+        if user_id in request.coauthor_ids:
+            raise ValueError("You cannot add yourself as a coauthor of your own review.")
         for coauthor_id in request.coauthor_ids:
             if not self._uow.users.exists(coauthor_id):
                 raise ValueError(f"Coauthor user '{coauthor_id}' not found.")
@@ -134,11 +136,13 @@ class ReviewService:
                 updates[field] = value.isoformat() if hasattr(value, "isoformat") else value
 
         if request.coauthor_ids is not None:
+            review = self._uow.reviews.get(request.review_id)
+            if review and review["user_id"] in request.coauthor_ids:
+                raise ValueError("The review's author cannot be added as a coauthor.")
             for coauthor_id in request.coauthor_ids:
                 if not self._uow.users.exists(coauthor_id):
                     raise ValueError(f"Coauthor user '{coauthor_id}' not found.")
             updates["coauthor_ids"] = request.coauthor_ids
-            review = self._uow.reviews.get(request.review_id)
             if review:
                 for coauthor_id in request.coauthor_ids:
                     self._move_to_visited(coauthor_id, review["restaurant_id"])

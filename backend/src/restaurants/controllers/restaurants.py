@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Depends, Request
 
 from src.restaurants.models import (
     CreateRestaurantRequest,
+    CreateManualRestaurantRequest,
     GetRestaurantByIdRequest,
     DeleteRestaurantRequest,
     CreateRestaurantResponse,
@@ -13,7 +14,7 @@ from src.restaurants.models import (
     DeleteRestaurantResponse,
 )
 from src.restaurants.services.restaurants_srv import RestaurantService
-from src.restaurants.gateways import GooglePlacesError
+from src.restaurants.gateways import GooglePlacesError, AddressNotFoundError
 from src.dependencies import get_restaurant_service
 from src.utils.auth import get_current_user, enforce_owner
 from src.utils.rate_limit import limiter
@@ -56,6 +57,27 @@ async def create_restaurant(
         if res_id:
             return CreateRestaurantResponse(restaurant_id=res_id, success=True)
         raise Exception("Error while creating one restaurant list entry.")
+    except GooglePlacesError as exp:
+        raise HTTPException(status_code=502, detail=str(exp))
+    except Exception as exp:
+        raise HTTPException(status_code=500, detail=str(exp))
+
+
+@router.post("/manual")
+@limiter.limit("10/hour")
+async def create_manual_restaurant(
+    request: Request,
+    body: CreateManualRestaurantRequest,
+    current_user: dict = Depends(get_current_user),
+    restaurants: RestaurantService = Depends(get_restaurant_service),
+) -> CreateRestaurantResponse:
+    """Endpoint to create a restaurant from a name + dropped map pin, reverse-geocoded via Nominatim."""
+    try:
+        user_id = current_user["user_id"]
+        res_id = await to_thread(restaurants.create_manual_restaurant, request=body, user_id=user_id)
+        return CreateRestaurantResponse(restaurant_id=res_id, success=True)
+    except AddressNotFoundError as exp:
+        raise HTTPException(status_code=422, detail=str(exp))
     except GooglePlacesError as exp:
         raise HTTPException(status_code=502, detail=str(exp))
     except Exception as exp:

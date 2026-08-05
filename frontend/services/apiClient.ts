@@ -67,8 +67,17 @@ export class ApiError extends Error {
     public status: number,
     public body: string,
   ) {
-    super(`API error ${status}: ${body}`);
+    super(ApiError.extractDetail(body) ?? `API error ${status}: ${body}`);
     this.name = "ApiError";
+  }
+
+  private static extractDetail(body: string): string | undefined {
+    try {
+      const parsed = JSON.parse(body);
+      return typeof parsed?.detail === "string" ? parsed.detail : undefined;
+    } catch {
+      return undefined;
+    }
   }
 }
 

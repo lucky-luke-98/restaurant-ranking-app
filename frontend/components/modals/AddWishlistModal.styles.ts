@@ -91,6 +91,36 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: 6,
     flex: 1,
   },
+  manualLink: {
+    color: colors.tint,
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  manualForm: {
+    gap: 12,
+    paddingBottom: 8,
+  },
+  manualFieldLabel: {
+    color: colors.textTertiary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  continueButton: {
+    backgroundColor: colors.backgroundButtonStrong,
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  continueButtonDisabled: {
+    opacity: 0.3,
+  },
+  continueButtonText: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
   cuisinePrompt: {
     color: colors.textTertiary,
     fontSize: 15,

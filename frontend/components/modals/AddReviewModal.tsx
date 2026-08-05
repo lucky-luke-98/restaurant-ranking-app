@@ -53,6 +53,7 @@ interface AddReviewModalProps {
   visible: boolean
   onClose: () => void
   initialValues?: ReviewInitialValues | null
+  canManageCoauthors?: boolean
   onSubmit: (data: {
     cleanliness_rating: number
     experience_rating: number
@@ -79,6 +80,7 @@ export default function AddReviewModal({
   visible,
   onClose,
   initialValues,
+  canManageCoauthors = true,
   onSubmit,
 }: AddReviewModalProps) {
   const isEdit = !!initialValues
@@ -115,7 +117,7 @@ export default function AddReviewModal({
 
   useEffect(() => {
     if (visible) {
-      fetchFriends()
+      if (canManageCoauthors) fetchFriends()
       if (initialValues) {
         setCleanliness(initialValues.cleanliness_rating)
         setExperience(initialValues.experience_rating)
@@ -279,7 +281,7 @@ export default function AddReviewModal({
         experience_rating: experience,
         comment: comment.trim(),
         ...(visitedAt ? { visited_at: visitedAt } : {}),
-        ...(selectedCoauthors.length > 0
+        ...(canManageCoauthors && selectedCoauthors.length > 0
           ? { coauthor_ids: selectedCoauthors.map((f) => f.user_id) }
           : {}),
         images,
@@ -454,7 +456,7 @@ export default function AddReviewModal({
             </View>
 
             {/* Coauthors section */}
-            {friends.length > 0 && (
+            {canManageCoauthors && friends.length > 0 && (
               <View style={styles.coauthorSection}>
                 <Text style={styles.fieldLabel}>{t.inviteFriend}</Text>
                 {selectedCoauthors.length > 0 && (

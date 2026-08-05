@@ -11,7 +11,7 @@ from src.config import settings
 
 class Restaurant(BaseModel):
     restaurant_id: str = Field(default_factory=lambda: str(uuid4()))
-    google_place_id: str
+    google_place_id: str | None = None
     name: str
     cuisine_type: str
     street: str
@@ -81,6 +81,12 @@ CUISINE_TYPES = [
     "bbq", "fusion", "others",
 ]
 
+def _validate_cuisine_type(v: str) -> str:
+    if v not in CUISINE_TYPES:
+        raise ValueError(f"Invalid cuisine type. Must be one of: {', '.join(CUISINE_TYPES)}")
+    return v
+
+
 class CreateRestaurantRequest(BaseModel):
     google_place_id: str = Field(..., description="The Google Place ID of the restaurant.")
     cuisine_type: str = Field("others", description="Cuisine type chosen by the user.")
@@ -95,9 +101,19 @@ class CreateRestaurantRequest(BaseModel):
     @field_validator("cuisine_type")
     @classmethod
     def validate_cuisine_type(cls, v: str) -> str:
-        if v not in CUISINE_TYPES:
-            raise ValueError(f"Invalid cuisine type. Must be one of: {', '.join(CUISINE_TYPES)}")
-        return v
+        return _validate_cuisine_type(v)
+
+
+class CreateManualRestaurantRequest(BaseModel):
+    name: str = Field(..., min_length=1, description="Restaurant name entered by the user.")
+    cuisine_type: str = Field("others", description="Cuisine type chosen by the user.")
+    latitude: float = Field(..., ge=-90, le=90, description="Latitude of the pin dropped by the user.")
+    longitude: float = Field(..., ge=-180, le=180, description="Longitude of the pin dropped by the user.")
+
+    @field_validator("cuisine_type")
+    @classmethod
+    def validate_cuisine_type(cls, v: str) -> str:
+        return _validate_cuisine_type(v)
 
 class CreateRestaurantReviewRequest(BaseModel):
     restaurant_id: str = Field(..., description="ID of the restaurant being reviewed.")

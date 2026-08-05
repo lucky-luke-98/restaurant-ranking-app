@@ -238,6 +238,38 @@ export default function RestaurantsScreen() {
     })
   }
 
+  const handleAddManualToWishlist = async (
+    name: string,
+    latitude: number,
+    longitude: number,
+    cuisineType: string,
+    comment: string,
+  ) => {
+    const res = await apiClient.post<{ restaurant_id: string; success: boolean }>(
+      '/restaurant/manual',
+      { name, cuisine_type: cuisineType, latitude, longitude },
+    )
+    await apiClient.post('/wishlist', {
+      restaurant_id: res.restaurant_id,
+      ...(comment ? { comment } : {}),
+    })
+  }
+
+  const handleAddManualRestaurant = async (
+    name: string,
+    latitude: number,
+    longitude: number,
+    cuisineType: string,
+  ) => {
+    const res = await apiClient.post<{ restaurant_id: string; success: boolean }>(
+      '/restaurant/manual',
+      { name, cuisine_type: cuisineType, latitude, longitude },
+    )
+    await apiClient.post('/visited', {
+      restaurant_id: res.restaurant_id,
+    })
+  }
+
   const handleAddVisitedFromWishlist = async (restaurantId: string) => {
     await apiClient.post('/visited/from-wishlist', {
       restaurant_id: restaurantId,
@@ -398,6 +430,7 @@ export default function RestaurantsScreen() {
           refreshAfterAdd()
         }}
         onSubmit={handleAddToWishlist}
+        onSubmitManual={handleAddManualToWishlist}
       />
 
       {/* Visited tab: pick from wishlist or Google search */}
@@ -411,6 +444,7 @@ export default function RestaurantsScreen() {
         wishlistRestaurants={wishlistRestaurants}
         onSelectFromWishlist={handleAddVisitedFromWishlist}
         onSubmitFromSearch={handleAddVisitedFromSearch}
+        onSubmitManual={handleAddManualRestaurant}
       />
 
       <EditWishlistCommentModal

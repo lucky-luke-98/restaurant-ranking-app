@@ -6,7 +6,9 @@ while still benefiting from Google's broad primary-type coverage (the API caps
 `includedPrimaryTypes` at 5 entries, which is too narrow to cover cuisines,
 bars, cafeterias, etc. in a single request).
 
-Source: Google Places API (New) "Food and Drink" category (Table A).
+Source: Google Places API (New) "Food and Drink" category (Table A), plus a
+few specialty food shop types from the "Shopping" category (e.g. deli-style
+places have no dedicated type and get tagged food_store/butcher_shop).
 https://developers.google.com/maps/documentation/places/web-service/place-types
 """
 
@@ -69,6 +71,8 @@ FOOD_PLACE_TYPES: frozenset[str] = frozenset({
     "acai_shop", "cake_shop", "candy_store", "chocolate_factory",
     "chocolate_shop", "confectionery", "dessert_restaurant", "dessert_shop",
     "donut_shop", "ice_cream_shop", "juice_shop", "pastry_shop",
+    # specialty food shops (e.g. Delikatessengeschäft/Feinkostladen)
+    "food_store", "butcher_shop", "health_food_store",
 })
 
 

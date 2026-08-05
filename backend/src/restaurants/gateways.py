@@ -17,6 +17,10 @@ class GooglePlacesError(Exception):
     """Raised when the Google Places API errors out or is unreachable (billing, permissions, network)."""
 
 
+class AddressNotFoundError(Exception):
+    """Raised when a location cannot be resolved to an address (e.g. a pin dropped in open water)."""
+
+
 class GooglePlacesGateway:
     """Talks to the Google Places API (New) for restaurant search and details."""
 
@@ -124,3 +128,47 @@ class GooglePlacesGateway:
             "latitude": location.get("latitude"),
             "longitude": location.get("longitude"),
         }
+
+
+class NominatimGateway:
+    """Talks to OpenStreetMap Nominatim to reverse-geocode a dropped map pin into an address."""
+
+    def reverse_geocode(self, latitude: float, longitude: float) -> dict:
+        """Reverse-geocode a pinned location into street/city/country."""
+        try:
+            response = requests.get(
+                settings.nominatim_reverse_url,
+                params={
+                    "format": "jsonv2",
+                    "lat": latitude,
+                    "lon": longitude,
+                    "zoom": 18,
+                    "addressdetails": 1,
+                    "accept-language": "en",
+                },
+                headers={"User-Agent": settings.nominatim_user_agent},
+                timeout=10,
+            )
+        except requests.RequestException as exp:
+            logger.error(f"Nominatim reverse geocoding request failed for ({latitude}, {longitude}): {exp}")
+            raise AddressNotFoundError("Could not reach the address lookup service.") from exp
+
+        if not response.ok:
+            logger.error(
+                f"Nominatim reverse geocoding returned HTTP {response.status_code} for ({latitude}, {longitude}): {response.text}"
+            )
+            raise AddressNotFoundError(
+                f"Address lookup is currently unavailable (upstream status {response.status_code})."
+            )
+
+        data = response.json()
+        address = data.get("address", {})
+        if not address:
+            logger.info(f"Nominatim found no address for ({latitude}, {longitude}): {data}")
+            raise AddressNotFoundError("Could not determine an address for that location. Please try a different spot.")
+
+        street = f"{address.get('road', '')} {address.get('house_number', '')}".strip()
+        city = address.get("city") or address.get("town") or address.get("village") or ""
+        country = address.get("country", "")
+
+        return {"street": street, "city": city, "country": country}

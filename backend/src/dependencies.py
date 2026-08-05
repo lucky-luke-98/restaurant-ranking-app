@@ -12,7 +12,7 @@ which FastAPI shares between the services resolved for that request.
 from fastapi import Depends
 
 from src.unit_of_work import UnitOfWork, MongoUnitOfWork
-from src.restaurants.gateways import GooglePlacesGateway
+from src.restaurants.gateways import GooglePlacesGateway, NominatimGateway
 from src.users.services import UserService, FriendService
 from src.restaurants.services.restaurants_srv import RestaurantService
 from src.restaurants.services.reviews_srv import ReviewService, FoodReviewService
@@ -30,6 +30,10 @@ def get_places_gateway() -> GooglePlacesGateway:
     return GooglePlacesGateway()
 
 
+def get_geocoder_gateway() -> NominatimGateway:
+    return NominatimGateway()
+
+
 # ---- services (depend only on the abstractions above) ----
 
 def get_user_service(uow: UnitOfWork = Depends(get_unit_of_work)) -> UserService:
@@ -43,8 +47,9 @@ def get_friend_service(uow: UnitOfWork = Depends(get_unit_of_work)) -> FriendSer
 def get_restaurant_service(
     uow: UnitOfWork = Depends(get_unit_of_work),
     places: GooglePlacesGateway = Depends(get_places_gateway),
+    geocoder: NominatimGateway = Depends(get_geocoder_gateway),
 ) -> RestaurantService:
-    return RestaurantService(uow, places)
+    return RestaurantService(uow, places, geocoder)
 
 
 def get_review_service(uow: UnitOfWork = Depends(get_unit_of_work)) -> ReviewService:

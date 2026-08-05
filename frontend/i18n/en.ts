@@ -107,6 +107,16 @@ const en = {
   wishlistEmpty: 'Your wishlist is empty',
   failedAddRestaurant: 'Failed to add restaurant',
 
+  // Manual Entry
+  enterManuallyOption: 'Enter Manually',
+  enterManuallySubtitle: "Add a place Google can't find",
+  manualEntryTitle: 'Add Manually',
+  restaurantNameLabel: 'Restaurant name',
+  restaurantNamePlaceholder: 'e.g. "Mare Atlantico Delikatessen"',
+  dropPinInstruction: 'Tap the map to mark the location',
+  continueButton: 'Continue',
+  addressNotFound: "Could not determine an address for that location. Please try a different spot.",
+
   // Edit
   edit: 'Edit',
   edited: 'edited',

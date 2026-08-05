@@ -86,6 +86,7 @@ export default function RestaurantDetailScreen() {
   const [error, setError] = useState<string | null>(null)
   const [reviewModalVisible, setReviewModalVisible] = useState(false)
   const [editingReview, setEditingReview] = useState<ReviewInitialValues | null>(null)
+  const [editingReviewIsOwn, setEditingReviewIsOwn] = useState(true)
 
   const [imagesLoading, setImagesLoading] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState<{ id: string } | null>(null)
@@ -252,6 +253,7 @@ export default function RestaurantDetailScreen() {
 
   const handleEditReview = (review: Review) => {
     const reviewFoods = foodReviewsByReview.get(review.review_id) ?? []
+    setEditingReviewIsOwn(!!user && review.user_id === user.user_id)
     setEditingReview({
       review_id: review.review_id,
       cleanliness_rating: review.cleanliness_rating,
@@ -287,7 +289,7 @@ export default function RestaurantDetailScreen() {
       experience_rating: data.experience_rating,
       comment: data.comment,
       ...(data.visited_at ? { visited_at: data.visited_at } : {}),
-      coauthor_ids: data.coauthor_ids ?? [],
+      ...(editingReviewIsOwn ? { coauthor_ids: data.coauthor_ids ?? [] } : {}),
       images: data.images,
     })
 
@@ -451,7 +453,8 @@ export default function RestaurantDetailScreen() {
       <AddReviewModal
         visible={reviewModalVisible}
         initialValues={editingReview}
-        onClose={() => { setReviewModalVisible(false); setEditingReview(null) }}
+        canManageCoauthors={!editingReview || editingReviewIsOwn}
+        onClose={() => { setReviewModalVisible(false); setEditingReview(null); setEditingReviewIsOwn(true) }}
         onSubmit={editingReview ? handleUpdateReview : handleAddReview}
       />
 
