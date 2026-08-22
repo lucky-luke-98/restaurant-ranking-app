@@ -1,7 +1,11 @@
 import { ScrollViewStyleReset } from 'expo-router/html'
 import { type PropsWithChildren } from 'react'
 
-const autofillCss = `
+const globalCss = `
+html, body {
+  overscroll-behavior-y: none;
+}
+
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
@@ -49,7 +53,7 @@ export default function Root({ children }: PropsWithChildren) {
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
 
         <ScrollViewStyleReset />
-        <style dangerouslySetInnerHTML={{ __html: autofillCss }} />
+        <style dangerouslySetInnerHTML={{ __html: globalCss }} />
         <script dangerouslySetInnerHTML={{ __html: registerServiceWorker }} />
       </head>
       <body>{children}</body>

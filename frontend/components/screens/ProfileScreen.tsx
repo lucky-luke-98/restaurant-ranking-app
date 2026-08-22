@@ -19,6 +19,7 @@ import { useAppTheme, type ThemeMode } from '@/services/ThemeContext'
 import { useAuth } from '@/services/AuthContext'
 import { useFriends } from '@/services/FriendsContext'
 import { useThemeColors } from '@/hooks/useThemeColors'
+import PullToRefresh from '@/components/PullToRefresh'
 import apiClient from '@/services/apiClient'
 import ConfirmModal from '@/components/modals/ConfirmModal'
 import AddFriendModal from '@/components/modals/AddFriendModal'
@@ -104,6 +105,16 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (isAdmin && activeTab === 'admin') fetchUsers()
   }, [isAdmin, activeTab, fetchUsers])
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true)
+    try {
+      await refreshFriends()
+      if (isAdmin && activeTab === 'admin') await fetchUsers()
+    } finally {
+      setRefreshing(false)
+    }
+  }, [refreshFriends, isAdmin, activeTab, fetchUsers])
 
   const handleRemoveFriend = async (friendUserId: string) => {
     await removeFriendAction(friendUserId)
@@ -398,56 +409,49 @@ export default function ProfileScreen() {
         </View>
       )}
 
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={{ gap: 24, paddingBottom: 40 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={async () => {
-              setRefreshing(true)
-              await refreshFriends()
-              if (isAdmin && activeTab === 'admin') await fetchUsers()
-              setRefreshing(false)
-            }}
-            tintColor={colors.text}
-          />
-        }
-      >
-        {user && (
-          <View style={styles.profileHeader}>
-            <Pressable
-              onPress={pickAvatar}
-              style={styles.avatarWrapper}
-              accessibilityLabel={t.editAvatar}
-            >
-              {user.avatar ? (
-                <Image
-                  source={{ uri: `data:image/jpeg;base64,${user.avatar}` }}
-                  style={styles.avatarImage}
-                />
-              ) : (
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {user.first_name[0]}{user.last_name[0]}
-                  </Text>
-                </View>
-              )}
-              <View style={styles.avatarEditBadge}>
-                {uploading ? (
-                  <ActivityIndicator size={12} color={colors.background} />
+      <PullToRefresh refreshing={refreshing} onRefresh={handleRefresh}>
+        <ScrollView
+          style={styles.container}
+          contentContainerStyle={{ gap: 24, paddingBottom: 40 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.text} />
+          }
+        >
+          {user && (
+            <View style={styles.profileHeader}>
+              <Pressable
+                onPress={pickAvatar}
+                style={styles.avatarWrapper}
+                accessibilityLabel={t.editAvatar}
+              >
+                {user.avatar ? (
+                  <Image
+                    source={{ uri: `data:image/jpeg;base64,${user.avatar}` }}
+                    style={styles.avatarImage}
+                  />
                 ) : (
-                  <CameraIcon size={14} color={colors.background} weight="bold" />
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>
+                      {user.first_name[0]}{user.last_name[0]}
+                    </Text>
+                  </View>
                 )}
-              </View>
-            </Pressable>
-            <Text style={styles.profileName}>{user.first_name} {user.last_name}</Text>
-            <Text style={styles.profileEmail}>{user.mail}</Text>
-          </View>
-        )}
+                <View style={styles.avatarEditBadge}>
+                  {uploading ? (
+                    <ActivityIndicator size={12} color={colors.background} />
+                  ) : (
+                    <CameraIcon size={14} color={colors.background} weight="bold" />
+                  )}
+                </View>
+              </Pressable>
+              <Text style={styles.profileName}>{user.first_name} {user.last_name}</Text>
+              <Text style={styles.profileEmail}>{user.mail}</Text>
+            </View>
+          )}
 
-        {activeTab === 'settings' ? renderSettingsTab() : renderAdminTab()}
-      </ScrollView>
+          {activeTab === 'settings' ? renderSettingsTab() : renderAdminTab()}
+        </ScrollView>
+      </PullToRefresh>
 
       <AddFriendModal
         visible={addFriendVisible}

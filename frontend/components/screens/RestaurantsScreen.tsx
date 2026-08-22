@@ -15,6 +15,7 @@ import { PlusIcon, CheckCircleIcon, HeartIcon, ForkKnifeIcon, FunnelIcon } from 
 import apiClient, { ApiError } from '@/services/apiClient'
 import { useAuth } from '@/services/AuthContext'
 import RestaurantCard from '@/components/cards/RestaurantCard'
+import PullToRefresh from '@/components/PullToRefresh'
 import AddWishlistModal from '@/components/modals/AddWishlistModal'
 import AddVisitedModal from '@/components/modals/AddVisitedModal'
 import ConfirmModal from '@/components/modals/ConfirmModal'
@@ -373,53 +374,55 @@ export default function RestaurantsScreen() {
         })}
       </View>
 
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.tint} />
-        </View>
-      ) : error ? (
-        <View style={styles.centered}>
-          <Text style={styles.errorText}>{error}</Text>
-        </View>
-      ) : filteredRestaurants.length === 0 ? (
-        <View style={styles.centered}>
-          <ForkKnifeIcon size={56} color={colors.textFaint} weight="duotone" style={{ marginBottom: 16 }} />
-          <Text style={styles.emptyText}>{emptyMessage}</Text>
-          <Pressable style={styles.emptyAddButton} onPress={openAddModal}>
-            <PlusIcon size={18} color="#fff" weight="bold" />
-            <Text style={styles.emptyAddButtonText}>
-              {activeTab === 'wishlist' ? t.addToWishlist : t.addVisitedRestaurant}
-            </Text>
-          </Pressable>
-        </View>
-      ) : (
-        <FlatList
-          data={filteredRestaurants}
-          keyExtractor={(item) => item.restaurant_id}
-          contentContainerStyle={styles.list}
-          extraData={foodStats}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.text} />
-          }
-          renderItem={({ item }) => (
-            <RestaurantCard
-              restaurant={item}
-              stats={foodStats[item.restaurant_id]}
-              onDelete={handleDeleteEntry}
-              wishlistComment={
-                activeTab === 'wishlist'
-                  ? wishlistByRestaurantId[item.restaurant_id]?.comment ?? null
-                  : undefined
-              }
-              onEditComment={
-                activeTab === 'wishlist'
-                  ? (rid) => setEditCommentRestaurantId(rid)
-                  : undefined
-              }
-            />
-          )}
-        />
-      )}
+      <PullToRefresh refreshing={refreshing} onRefresh={handleRefresh}>
+        {loading ? (
+          <View style={styles.centered}>
+            <ActivityIndicator size="large" color={colors.tint} />
+          </View>
+        ) : error ? (
+          <View style={styles.centered}>
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : filteredRestaurants.length === 0 ? (
+          <View style={styles.centered}>
+            <ForkKnifeIcon size={56} color={colors.textFaint} weight="duotone" style={{ marginBottom: 16 }} />
+            <Text style={styles.emptyText}>{emptyMessage}</Text>
+            <Pressable style={styles.emptyAddButton} onPress={openAddModal}>
+              <PlusIcon size={18} color="#fff" weight="bold" />
+              <Text style={styles.emptyAddButtonText}>
+                {activeTab === 'wishlist' ? t.addToWishlist : t.addVisitedRestaurant}
+              </Text>
+            </Pressable>
+          </View>
+        ) : (
+          <FlatList
+            data={filteredRestaurants}
+            keyExtractor={(item) => item.restaurant_id}
+            contentContainerStyle={styles.list}
+            extraData={foodStats}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.text} />
+            }
+            renderItem={({ item }) => (
+              <RestaurantCard
+                restaurant={item}
+                stats={foodStats[item.restaurant_id]}
+                onDelete={handleDeleteEntry}
+                wishlistComment={
+                  activeTab === 'wishlist'
+                    ? wishlistByRestaurantId[item.restaurant_id]?.comment ?? null
+                    : undefined
+                }
+                onEditComment={
+                  activeTab === 'wishlist'
+                    ? (rid) => setEditCommentRestaurantId(rid)
+                    : undefined
+                }
+              />
+            )}
+          />
+        )}
+      </PullToRefresh>
 
       {/* Wishlist tab: Google search modal */}
       <AddWishlistModal

@@ -13,6 +13,7 @@ import { useFriends } from '@/services/FriendsContext'
 import { useTranslation } from '@/services/LanguageContext'
 import { useThemeColors } from '@/hooks/useThemeColors'
 import RestaurantVisitCard from '@/components/cards/RestaurantVisitCard'
+import PullToRefresh from '@/components/PullToRefresh'
 import { createStyles } from './FriendsFeedScreen.styles'
 
 interface FeedRestaurant {
@@ -206,10 +207,39 @@ export default function FriendsFeedScreen() {
 
   if (items.length === 0) {
     return (
+      <PullToRefresh refreshing={refreshing} onRefresh={handleRefresh}>
+        <FlatList
+          data={[]}
+          renderItem={null as any}
+          contentContainerStyle={styles.emptyScroll}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={colors.text}
+            />
+          }
+          ListEmptyComponent={
+            <View style={styles.centered}>
+              <NewspaperIcon size={48} color={colors.textFaint} weight="regular" />
+              <Text style={styles.emptyText}>{t.feedEmptyNoReviews}</Text>
+            </View>
+          }
+        />
+      </PullToRefresh>
+    )
+  }
+
+  return (
+    <PullToRefresh refreshing={refreshing} onRefresh={handleRefresh}>
       <FlatList
-        data={[]}
-        renderItem={null as any}
-        contentContainerStyle={styles.emptyScroll}
+        data={items}
+        keyExtractor={(item) => item.review_id}
+        renderItem={renderItem}
+        contentContainerStyle={styles.listContent}
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={0.4}
+        removeClippedSubviews
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -217,43 +247,18 @@ export default function FriendsFeedScreen() {
             tintColor={colors.text}
           />
         }
-        ListEmptyComponent={
-          <View style={styles.centered}>
-            <NewspaperIcon size={48} color={colors.textFaint} weight="regular" />
-            <Text style={styles.emptyText}>{t.feedEmptyNoReviews}</Text>
-          </View>
+        ListFooterComponent={
+          loadingMore ? (
+            <ActivityIndicator
+              size="small"
+              color={colors.textFaint}
+              style={styles.footerSpinner}
+            />
+          ) : !hasMore ? (
+            <Text style={styles.endReachedText}>{t.feedEndReached}</Text>
+          ) : null
         }
       />
-    )
-  }
-
-  return (
-    <FlatList
-      data={items}
-      keyExtractor={(item) => item.review_id}
-      renderItem={renderItem}
-      contentContainerStyle={styles.listContent}
-      onEndReached={handleEndReached}
-      onEndReachedThreshold={0.4}
-      removeClippedSubviews
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={handleRefresh}
-          tintColor={colors.text}
-        />
-      }
-      ListFooterComponent={
-        loadingMore ? (
-          <ActivityIndicator
-            size="small"
-            color={colors.textFaint}
-            style={styles.footerSpinner}
-          />
-        ) : !hasMore ? (
-          <Text style={styles.endReachedText}>{t.feedEndReached}</Text>
-        ) : null
-      }
-    />
+    </PullToRefresh>
   )
 }

@@ -6,6 +6,7 @@ import {
   ScrollView,
   Pressable,
   Platform,
+  RefreshControl,
 } from 'react-native'
 import { useLocalSearchParams, Stack } from 'expo-router'
 import { PlusIcon, StarIcon, NotepadIcon, PencilSimpleIcon } from 'phosphor-react-native'
@@ -13,6 +14,7 @@ import { CUISINE_ICONS, CUISINE_LABEL_KEYS, type CuisineType } from '@/constants
 import apiClient, { ApiError } from '@/services/apiClient'
 import { useAuth } from '@/services/AuthContext'
 import ReviewCard from '@/components/cards/ReviewCard'
+import PullToRefresh from '@/components/PullToRefresh'
 import AddReviewModal, { ReviewInitialValues, FoodItemEntry } from '@/components/modals/AddReviewModal'
 import ConfirmModal from '@/components/modals/ConfirmModal'
 import EditWishlistCommentModal from '@/components/modals/EditWishlistCommentModal'
@@ -93,10 +95,11 @@ export default function RestaurantDetailScreen() {
   const [confirmLeave, setConfirmLeave] = useState<{ id: string } | null>(null)
   const [wishlistEntry, setWishlistEntry] = useState<{ entry_id: string; comment?: string | null } | null>(null)
   const [editCommentVisible, setEditCommentVisible] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
 
-  const fetchData = useCallback(() => {
-    setLoading(true)
-    Promise.all([
+  const fetchData = useCallback((silent = false) => {
+    if (!silent) setLoading(true)
+    return Promise.all([
       apiClient.get<{ restaurant: Restaurant }>(`/restaurant/${id}`),
       apiClient.get<{ reviews: Review[] }>(`/review/${id}`),
       apiClient.get<{ food_reviews: FoodReview[] }>(`/review/food/${id}`),
@@ -163,6 +166,15 @@ export default function RestaurantDetailScreen() {
 
   useEffect(() => {
     fetchData()
+  }, [fetchData])
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true)
+    try {
+      await fetchData(true)
+    } finally {
+      setRefreshing(false)
+    }
   }, [fetchData])
 
   // Group food reviews by review_id so each review card shows only the foods
@@ -365,90 +377,97 @@ export default function RestaurantDetailScreen() {
   return (
     <>
       <Stack.Screen options={{ title: t.restaurantsSlash(restaurant.name) }} />
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.infoSection}>
-          <Text style={styles.name}>{restaurant.name}</Text>
-          {(() => {
-            const ck = restaurant.cuisine_type as CuisineType
-            const CIcon = CUISINE_ICONS[ck] ?? CUISINE_ICONS.others
-            const lk = CUISINE_LABEL_KEYS[ck] as keyof typeof t | undefined
-            return (
-              <View style={styles.cuisineBadgeRow}>
-                <CIcon size={15} color={colors.textTertiary} weight="duotone" />
-                <Text style={styles.cuisineBadge}>{lk ? (t[lk] as string) : restaurant.cuisine_type}</Text>
+      <PullToRefresh refreshing={refreshing} onRefresh={handleRefresh}>
+        <ScrollView
+          contentContainerStyle={styles.container}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.text} />
+          }
+        >
+          <View style={styles.infoSection}>
+            <Text style={styles.name}>{restaurant.name}</Text>
+            {(() => {
+              const ck = restaurant.cuisine_type as CuisineType
+              const CIcon = CUISINE_ICONS[ck] ?? CUISINE_ICONS.others
+              const lk = CUISINE_LABEL_KEYS[ck] as keyof typeof t | undefined
+              return (
+                <View style={styles.cuisineBadgeRow}>
+                  <CIcon size={15} color={colors.textTertiary} weight="duotone" />
+                  <Text style={styles.cuisineBadge}>{lk ? (t[lk] as string) : restaurant.cuisine_type}</Text>
+                </View>
+              )
+            })()}
+            <Text style={styles.address}>
+              {`${restaurant.street}, ${restaurant.city}, ${restaurant.country}`}
+            </Text>
+            {foodAvg !== null && (
+              <View style={styles.statsSummary}>
+                <StarIcon size={18} color={ratingColor(foodAvg)} weight="fill" />
+                <Text style={[styles.statsSummaryValue, { color: ratingColor(foodAvg) }]}>
+                  {foodAvg.toFixed(1)}
+                </Text>
+                <Text style={styles.statsSummaryLabel}>
+                  ({foodReviews.length} {foodReviews.length === 1 ? t.rating.toLowerCase() : t.foodItems.toLowerCase()})
+                </Text>
               </View>
-            )
-          })()}
-          <Text style={styles.address}>
-            {`${restaurant.street}, ${restaurant.city}, ${restaurant.country}`}
-          </Text>
-          {foodAvg !== null && (
-            <View style={styles.statsSummary}>
-              <StarIcon size={18} color={ratingColor(foodAvg)} weight="fill" />
-              <Text style={[styles.statsSummaryValue, { color: ratingColor(foodAvg) }]}>
-                {foodAvg.toFixed(1)}
-              </Text>
-              <Text style={styles.statsSummaryLabel}>
-                ({foodReviews.length} {foodReviews.length === 1 ? t.rating.toLowerCase() : t.foodItems.toLowerCase()})
-              </Text>
-            </View>
-          )}
-          {wishlistEntry && (
-            <Pressable
-              style={({ pressed }) => [
-                wishlistEntry.comment ? styles.wishlistNote : styles.wishlistNoteEmpty,
-                pressed && { opacity: 0.7 },
-              ]}
-              onPress={() => setEditCommentVisible(true)}
-            >
-              <NotepadIcon
-                size={18}
-                color={wishlistEntry.comment ? colors.primary : colors.textFaint}
-                weight="duotone"
-              />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.wishlistNoteLabel}>{t.wishlistCommentTitle}</Text>
-                {wishlistEntry.comment ? (
-                  <Text style={styles.wishlistNoteText}>{wishlistEntry.comment}</Text>
-                ) : (
-                  <Text style={styles.wishlistNoteEmptyText}>{t.addWishlistComment}</Text>
-                )}
-              </View>
-              <PencilSimpleIcon size={15} color={colors.textFaint} />
-            </Pressable>
-          )}
-        </View>
-
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{t.sectionReviews}</Text>
-            <Pressable
-              style={styles.addButton}
-              onPress={() => setReviewModalVisible(true)}
-            >
-              <PlusIcon size={16} color={colors.text} weight="bold" />
-              <Text style={styles.addButtonText}>{t.add}</Text>
-            </Pressable>
+            )}
+            {wishlistEntry && (
+              <Pressable
+                style={({ pressed }) => [
+                  wishlistEntry.comment ? styles.wishlistNote : styles.wishlistNoteEmpty,
+                  pressed && { opacity: 0.7 },
+                ]}
+                onPress={() => setEditCommentVisible(true)}
+              >
+                <NotepadIcon
+                  size={18}
+                  color={wishlistEntry.comment ? colors.primary : colors.textFaint}
+                  weight="duotone"
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.wishlistNoteLabel}>{t.wishlistCommentTitle}</Text>
+                  {wishlistEntry.comment ? (
+                    <Text style={styles.wishlistNoteText}>{wishlistEntry.comment}</Text>
+                  ) : (
+                    <Text style={styles.wishlistNoteEmptyText}>{t.addWishlistComment}</Text>
+                  )}
+                </View>
+                <PencilSimpleIcon size={15} color={colors.textFaint} />
+              </Pressable>
+            )}
           </View>
-          {reviews.length === 0 ? (
-            <Text style={styles.emptyText}>{t.emptyReviews}</Text>
-          ) : (
-            reviews.map((review) => (
-              <ReviewCard
-                key={review.review_id}
-                review={review}
-                foodReviews={foodReviewsByReview.get(review.review_id) ?? []}
-                isOwn={!!user && review.user_id === user.user_id}
-                isCoauthor={!!user && !!review.coauthors?.some((c) => c.user_id === user.user_id)}
-                imagesLoading={imagesLoading}
-                onEdit={handleEditReview}
-                onDelete={handleDeleteReview}
-                onLeave={handleLeaveReview}
-              />
-            ))
-          )}
-        </View>
-      </ScrollView>
+
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{t.sectionReviews}</Text>
+              <Pressable
+                style={styles.addButton}
+                onPress={() => setReviewModalVisible(true)}
+              >
+                <PlusIcon size={16} color={colors.text} weight="bold" />
+                <Text style={styles.addButtonText}>{t.add}</Text>
+              </Pressable>
+            </View>
+            {reviews.length === 0 ? (
+              <Text style={styles.emptyText}>{t.emptyReviews}</Text>
+            ) : (
+              reviews.map((review) => (
+                <ReviewCard
+                  key={review.review_id}
+                  review={review}
+                  foodReviews={foodReviewsByReview.get(review.review_id) ?? []}
+                  isOwn={!!user && review.user_id === user.user_id}
+                  isCoauthor={!!user && !!review.coauthors?.some((c) => c.user_id === user.user_id)}
+                  imagesLoading={imagesLoading}
+                  onEdit={handleEditReview}
+                  onDelete={handleDeleteReview}
+                  onLeave={handleLeaveReview}
+                />
+              ))
+            )}
+          </View>
+        </ScrollView>
+      </PullToRefresh>
 
       <AddReviewModal
         visible={reviewModalVisible}
