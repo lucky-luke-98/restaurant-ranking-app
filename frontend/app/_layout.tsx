@@ -64,7 +64,16 @@ function ThemedApp() {
     const root = document.documentElement;
     root.style.setProperty('--autofill-bg', colors.backgroundElevated);
     root.style.setProperty('--autofill-text', colors.text);
-  }, [colors.backgroundElevated, colors.text]);
+
+    // The static theme-color metas follow the OS; override them with the in-app choice.
+    document
+      .querySelectorAll('meta[name="theme-color"]')
+      .forEach((meta) => meta.remove());
+    const meta = document.createElement('meta');
+    meta.name = 'theme-color';
+    meta.content = colors.background;
+    document.head.appendChild(meta);
+  }, [colors.backgroundElevated, colors.text, colors.background]);
 
   const navTheme = useMemo(() => {
     const base = mode === 'dark' ? DarkTheme : DefaultTheme;
