@@ -7,7 +7,7 @@ import { useAuth } from '@/services/AuthContext'
 import { useTranslation } from '@/services/LanguageContext'
 import { useAppTheme } from '@/services/ThemeContext'
 import { useThemeColors } from '@/hooks/useThemeColors'
-import { CUISINE_LABEL_KEYS, type CuisineType } from '@/constants/CuisineTypes'
+import { tagLabel } from '@/constants/Tags'
 import RestaurantMap, { type MapRestaurant } from '@/components/maps/RestaurantMap'
 import RestaurantPopupCard from '@/components/maps/RestaurantPopupCard'
 import ClusterSheet from '@/components/maps/ClusterSheet'
@@ -16,7 +16,7 @@ import { createStyles } from './MapScreen.styles'
 interface Restaurant {
   restaurant_id: string
   name: string
-  cuisine_type: string
+  tags?: string[]
   street?: string
   city?: string
   latitude: number | null
@@ -108,7 +108,7 @@ export default function MapScreen() {
       out.push({
         restaurant_id: r.restaurant_id,
         name: r.name,
-        cuisine_type: r.cuisine_type,
+        tags: r.tags ?? [],
         street: r.street,
         city: r.city,
         latitude: r.latitude,
@@ -129,11 +129,8 @@ export default function MapScreen() {
     [router],
   )
 
-  const cuisineLabelFor = useCallback(
-    (cuisine: string) => {
-      const key = CUISINE_LABEL_KEYS[cuisine as CuisineType] as keyof typeof t | undefined
-      return key ? (t[key] as string) : cuisine
-    },
+  const tagsLabelFor = useCallback(
+    (tags: string[]) => tags.map((tag) => tagLabel(tag, t)).join(' \u00B7 '),
     [t],
   )
 
@@ -169,14 +166,14 @@ export default function MapScreen() {
       <RestaurantPopupCard
         restaurant={restaurant}
         stats={statsByRestaurantId.get(restaurant.restaurant_id)}
-        cuisineLabel={cuisineLabelFor(restaurant.cuisine_type)}
+        tagsLabel={tagsLabelFor(restaurant.tags)}
         noReviewsLabel={t.emptyReviews}
         colors={colors}
         userId={user?.user_id ?? ''}
         onPress={() => handleOpenRestaurant(restaurant.restaurant_id)}
       />
     ),
-    [statsByRestaurantId, cuisineLabelFor, t.emptyReviews, colors, user?.user_id, handleOpenRestaurant],
+    [statsByRestaurantId, tagsLabelFor, t.emptyReviews, colors, user?.user_id, handleOpenRestaurant],
   )
 
   // Only gate the very first load: unmounting RestaurantMap on a refetch would
@@ -209,7 +206,7 @@ export default function MapScreen() {
           total={cluster.total}
           colors={colors}
           statsByRestaurantId={statsByRestaurantId}
-          cuisineLabelFor={cuisineLabelFor}
+          tagsLabelFor={tagsLabelFor}
           labels={{
             title: t.mapClusterTitle,
             breakdown: t.mapClusterBreakdown,

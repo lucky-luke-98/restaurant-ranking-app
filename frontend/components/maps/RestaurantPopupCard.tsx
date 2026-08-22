@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import apiClient from '@/services/apiClient'
 import type { ThemeColors } from '@/constants/Colors'
-import { cuisineIconSvg } from '@/constants/CuisineMapIcons'
+import { RESTAURANT_GLYPH_PATH } from '@/constants/MapGlyph'
 import type { MapRestaurant } from './RestaurantMap'
 
 interface ReviewImage {
@@ -30,7 +30,7 @@ function ratingColor(value: number): string {
 export default function RestaurantPopupCard({
   restaurant,
   stats,
-  cuisineLabel,
+  tagsLabel,
   noReviewsLabel,
   colors,
   userId,
@@ -38,7 +38,7 @@ export default function RestaurantPopupCard({
 }: {
   restaurant: MapRestaurant
   stats?: PopupStats
-  cuisineLabel: string
+  tagsLabel: string
   noReviewsLabel: string
   colors: ThemeColors
   userId: string
@@ -104,7 +104,7 @@ export default function RestaurantPopupCard({
           }}
         >
           <svg width="19" height="19" viewBox="0 0 256 256" fill="#fff">
-            <path d={cuisineIconSvg(restaurant.cuisine_type)} />
+            <path d={RESTAURANT_GLYPH_PATH} />
           </svg>
         </div>
         <div style={{ minWidth: 0, flex: 1 }}>
@@ -121,7 +121,7 @@ export default function RestaurantPopupCard({
           >
             {restaurant.name}
           </div>
-          <div style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>{cuisineLabel}</div>
+          <div style={{ fontSize: 12, color: colors.textMuted, marginTop: 2 }}>{tagsLabel}</div>
         </div>
       </div>
 

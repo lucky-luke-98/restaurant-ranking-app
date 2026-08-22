@@ -135,32 +135,6 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textMuted,
     marginBottom: 8,
   },
-  cuisineChipsWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 16,
-  },
-  cuisineChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
-  },
-  cuisineChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  cuisineChipText: {
-    fontSize: 13,
-    color: colors.textMuted,
-  },
-  cuisineChipTextActive: {
-    color: '#fff',
-    fontWeight: '600',
-  },
   filterDateRow: {
     flexDirection: 'row',
     gap: 12,

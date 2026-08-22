@@ -9,7 +9,7 @@ import requests
 from loguru import logger
 
 from src.config import settings
-from src.config.place_types import is_food_place
+from src.config.place_types import is_food_place, tags_for_place_types
 from src.restaurants.models import PlaceSearchResult
 
 
@@ -109,19 +109,10 @@ class GooglePlacesGateway:
 
         location = data.get("location", {})
 
-        # Derive cuisine_type from Google's place types (lowercase to match CUISINE_TYPES)
-        google_types = set(data.get("types", []))
-        cuisine_type = "others"
-        type_mapping = {"bakery": "others", "cafe": "cafe", "bar": "bar", "meal_delivery": "others", "meal_takeaway": "others"}
-        for gt in google_types:
-            if gt in type_mapping:
-                cuisine_type = type_mapping[gt]
-                break
-
         return {
             "google_place_id": google_place_id,
             "name": data.get("displayName", {}).get("text", ""),
-            "cuisine_type": cuisine_type,
+            "tags": tags_for_place_types(data.get("types")),
             "street": f"{components.get('route', '')} {components.get('street_number', '')}".strip(),
             "city": components.get("locality", components.get("postal_town", "")),
             "country": components.get("country", ""),

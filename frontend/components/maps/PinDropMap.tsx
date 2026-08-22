@@ -89,7 +89,7 @@ export default function PinDropMap({ latitude, longitude, onChange, height = 220
             onDragEnd={handleDragEnd}
             onClick={(e: any) => e.originalEvent?.stopPropagation()}
           >
-            <RestaurantPin cuisine="others" background={colors.success} ring={colors.backgroundElevated} />
+            <RestaurantPin background={colors.success} ring={colors.backgroundElevated} />
           </Marker>
         )}
         <NavigationControl position="top-right" showCompass={false} />

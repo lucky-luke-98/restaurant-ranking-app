@@ -42,8 +42,16 @@ class RestaurantRepository(ABC):
         """Return every restaurant (without storage ids)."""
 
     @abstractmethod
-    def set_cuisine_type(self, restaurant_id: str, cuisine_type: str) -> None:
-        """Update a restaurant's cuisine type."""
+    def add_tags(self, restaurant_id: str, tags: list[str]) -> None:
+        """Attach tags to a restaurant, ignoring ones already present."""
+
+    @abstractmethod
+    def remove_tags(self, restaurant_id: str, tags: list[str]) -> None:
+        """Detach tags from a restaurant, ignoring ones not present."""
+
+    @abstractmethod
+    def distinct_tags(self) -> list[str]:
+        """Return every tag currently in use across all restaurants."""
 
     @abstractmethod
     def delete(self, restaurant_id: str) -> bool:
@@ -72,6 +80,10 @@ class ReviewRepository(ABC):
     @abstractmethod
     def list_reviewed_restaurant_ids(self, user_id: str) -> list[str]:
         """Return distinct restaurant ids the user has reviewed."""
+
+    @abstractmethod
+    def list_by_user(self, user_id: str, limit: int = 25) -> list[dict]:
+        """Return the user's own reviews (authored or coauthored), newest first."""
 
     @abstractmethod
     def update_fields(self, review_id: str, updates: dict) -> bool:
@@ -121,6 +133,10 @@ class FoodReviewRepository(ABC):
     @abstractmethod
     def list_ids_for_review(self, review_id: str) -> list[str]:
         """Return the ids of food reviews scoped to a restaurant review."""
+
+    @abstractmethod
+    def list_by_user(self, user_id: str, limit: int = 25) -> list[dict]:
+        """Return the dishes this user rated, newest first."""
 
     @abstractmethod
     def update_fields(self, food_review_id: str, updates: dict) -> bool:

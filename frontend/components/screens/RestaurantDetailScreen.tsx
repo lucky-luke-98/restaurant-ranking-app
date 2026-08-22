@@ -10,7 +10,6 @@ import {
 } from 'react-native'
 import { useLocalSearchParams, Stack } from 'expo-router'
 import { PlusIcon, StarIcon, NotepadIcon, PencilSimpleIcon } from 'phosphor-react-native'
-import { CUISINE_ICONS, CUISINE_LABEL_KEYS, type CuisineType } from '@/constants/CuisineTypes'
 import apiClient, { ApiError } from '@/services/apiClient'
 import { useAuth } from '@/services/AuthContext'
 import ReviewCard from '@/components/cards/ReviewCard'
@@ -18,6 +17,8 @@ import PullToRefresh from '@/components/PullToRefresh'
 import AddReviewModal, { ReviewInitialValues, FoodItemEntry } from '@/components/modals/AddReviewModal'
 import ConfirmModal from '@/components/modals/ConfirmModal'
 import EditWishlistCommentModal from '@/components/modals/EditWishlistCommentModal'
+import EditTagsModal from '@/components/modals/EditTagsModal'
+import TagRow from '@/components/tags/TagRow'
 import { useTranslation } from '@/services/LanguageContext'
 import { useThemeColors } from '@/hooks/useThemeColors'
 import { createStyles } from './RestaurantDetailScreen.styles'
@@ -25,10 +26,11 @@ import { createStyles } from './RestaurantDetailScreen.styles'
 interface Restaurant {
   restaurant_id: string
   name: string
-  cuisine_type: string
+  tags?: string[]
   street: string
   city: string
   country: string
+  created_by?: string | null
 }
 
 interface ReviewCoauthor {
@@ -95,6 +97,8 @@ export default function RestaurantDetailScreen() {
   const [confirmLeave, setConfirmLeave] = useState<{ id: string } | null>(null)
   const [wishlistEntry, setWishlistEntry] = useState<{ entry_id: string; comment?: string | null } | null>(null)
   const [editCommentVisible, setEditCommentVisible] = useState(false)
+  const [editTagsVisible, setEditTagsVisible] = useState(false)
+  const [knownTags, setKnownTags] = useState<string[]>([])
   const [refreshing, setRefreshing] = useState(false)
 
   const fetchData = useCallback((silent = false) => {
@@ -167,6 +171,21 @@ export default function RestaurantDetailScreen() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  useEffect(() => {
+    apiClient
+      .get<{ tags: string[] }>('/restaurant/tags')
+      .then((data) => setKnownTags(data.tags))
+      .catch(() => setKnownTags([]))
+  }, [])
+
+  const handleSaveTags = useCallback(
+    async (add: string[], remove: string[]) => {
+      const data = await apiClient.patch<{ tags: string[] }>(`/restaurant/${id}/tags`, { add, remove })
+      setRestaurant((prev) => (prev ? { ...prev, tags: data.tags } : prev))
+    },
+    [id],
+  )
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true)
@@ -386,17 +405,17 @@ export default function RestaurantDetailScreen() {
         >
           <View style={styles.infoSection}>
             <Text style={styles.name}>{restaurant.name}</Text>
-            {(() => {
-              const ck = restaurant.cuisine_type as CuisineType
-              const CIcon = CUISINE_ICONS[ck] ?? CUISINE_ICONS.others
-              const lk = CUISINE_LABEL_KEYS[ck] as keyof typeof t | undefined
-              return (
-                <View style={styles.cuisineBadgeRow}>
-                  <CIcon size={15} color={colors.textTertiary} weight="duotone" />
-                  <Text style={styles.cuisineBadge}>{lk ? (t[lk] as string) : restaurant.cuisine_type}</Text>
-                </View>
-              )
-            })()}
+            <Pressable
+              style={({ pressed }) => [styles.tagsRow, pressed && { opacity: 0.7 }]}
+              onPress={() => setEditTagsVisible(true)}
+            >
+              {restaurant.tags && restaurant.tags.length > 0 ? (
+                <TagRow tags={restaurant.tags} />
+              ) : (
+                <Text style={styles.tagsEmpty}>{t.noTagsYet}</Text>
+              )}
+              <PencilSimpleIcon size={13} color={colors.textFaint} />
+            </Pressable>
             <Text style={styles.address}>
               {`${restaurant.street}, ${restaurant.city}, ${restaurant.country}`}
             </Text>
@@ -482,6 +501,16 @@ export default function RestaurantDetailScreen() {
         initialComment={wishlistEntry?.comment ?? ''}
         onClose={() => setEditCommentVisible(false)}
         onSave={handleSaveWishlistComment}
+      />
+
+      <EditTagsModal
+        visible={editTagsVisible}
+        initialTags={restaurant.tags ?? []}
+        knownTags={knownTags}
+        canCreate={user?.role === 'admin'}
+        canRemove={user?.role === 'admin' || restaurant.created_by === user?.user_id}
+        onClose={() => setEditTagsVisible(false)}
+        onSave={handleSaveTags}
       />
 
       <ConfirmModal

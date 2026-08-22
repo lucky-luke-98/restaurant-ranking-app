@@ -3,6 +3,7 @@ import { View, Text, Pressable, Image, ScrollView, ActivityIndicator } from 'rea
 import { PencilSimpleIcon, TrashIcon, SignOutIcon, CaretDownIcon, CaretUpIcon, CaretRightIcon } from 'phosphor-react-native'
 import ImageViewer from '@/components/viewers/ImageViewer'
 import { useTranslation } from '@/services/LanguageContext'
+import { tagLabel } from '@/constants/Tags'
 import { useThemeColors, useThemeShadows } from '@/hooks/useThemeColors'
 import { createStyles } from './ReviewCard.styles'
 
@@ -31,7 +32,7 @@ interface FoodReview {
 interface RestaurantContext {
   restaurant_id: string
   name: string
-  cuisine_type?: string | null
+  tags?: string[] | null
   city?: string | null
   onPress: () => void
 }
@@ -106,9 +107,9 @@ export default function ReviewCard({ review, foodReviews, isOwn, isCoauthor, ima
             <Text style={styles.restaurantHeaderName} numberOfLines={1}>
               {restaurantContext.name}
             </Text>
-            {(restaurantContext.cuisine_type || restaurantContext.city) && (
+            {((restaurantContext.tags && restaurantContext.tags.length > 0) || restaurantContext.city) && (
               <Text style={styles.restaurantHeaderMeta} numberOfLines={1}>
-                {[restaurantContext.cuisine_type, restaurantContext.city]
+                {[...(restaurantContext.tags ?? []).map((tag) => tagLabel(tag, t)), restaurantContext.city]
                   .filter(Boolean)
                   .join(' \u00B7 ')}
               </Text>

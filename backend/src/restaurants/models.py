@@ -5,6 +5,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field, field_validator
 
 from src.config import settings
+from src.config.tags import MAX_TAGS_PER_RESTAURANT, normalize_tags
 
 
 # ==================== entities ==================== #
@@ -13,7 +14,7 @@ class Restaurant(BaseModel):
     restaurant_id: str = Field(default_factory=lambda: str(uuid4()))
     google_place_id: str | None = None
     name: str
-    cuisine_type: str
+    tags: list[str] = Field(default_factory=list)
     street: str
     city: str
     country: str
@@ -75,21 +76,18 @@ class VisitedEntry(BaseModel):
 _PLACE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{20,}$")
 
 
-CUISINE_TYPES = [
-    "brewery", "bar", "cafe", "italian", "japanese", "chinese", "asian",
-    "indian", "mexican", "greek", "oriental", "burger", "sandwiches",
-    "bbq", "fusion", "others",
-]
-
-def _validate_cuisine_type(v: str) -> str:
-    if v not in CUISINE_TYPES:
-        raise ValueError(f"Invalid cuisine type. Must be one of: {', '.join(CUISINE_TYPES)}")
-    return v
+def _validate_tags(v: list[str]) -> list[str]:
+    """Normalize submitted tags and cap the count. Which tags a user may *use* is
+    authorization, not shape, so it is enforced in the service layer."""
+    tags = normalize_tags(v)
+    if len(tags) > MAX_TAGS_PER_RESTAURANT:
+        raise ValueError(f"At most {MAX_TAGS_PER_RESTAURANT} tags are allowed.")
+    return tags
 
 
 class CreateRestaurantRequest(BaseModel):
     google_place_id: str = Field(..., description="The Google Place ID of the restaurant.")
-    cuisine_type: str = Field("others", description="Cuisine type chosen by the user.")
+    tags: list[str] = Field(default_factory=list, description="Tags chosen by the user.")
 
     @field_validator("google_place_id")
     @classmethod
@@ -98,22 +96,33 @@ class CreateRestaurantRequest(BaseModel):
             raise ValueError("Invalid Google Place ID format.")
         return v
 
-    @field_validator("cuisine_type")
+    @field_validator("tags")
     @classmethod
-    def validate_cuisine_type(cls, v: str) -> str:
-        return _validate_cuisine_type(v)
+    def validate_tags(cls, v: list[str]) -> list[str]:
+        return _validate_tags(v)
 
 
 class CreateManualRestaurantRequest(BaseModel):
     name: str = Field(..., min_length=1, description="Restaurant name entered by the user.")
-    cuisine_type: str = Field("others", description="Cuisine type chosen by the user.")
+    tags: list[str] = Field(default_factory=list, description="Tags chosen by the user.")
     latitude: float = Field(..., ge=-90, le=90, description="Latitude of the pin dropped by the user.")
     longitude: float = Field(..., ge=-180, le=180, description="Longitude of the pin dropped by the user.")
 
-    @field_validator("cuisine_type")
+    @field_validator("tags")
     @classmethod
-    def validate_cuisine_type(cls, v: str) -> str:
-        return _validate_cuisine_type(v)
+    def validate_tags(cls, v: list[str]) -> list[str]:
+        return _validate_tags(v)
+
+class UpdateRestaurantTagsRequest(BaseModel):
+    """Add and remove are separate because they carry different permissions: anyone
+    may add a tag, only the restaurant's creator or an admin may remove one."""
+    add: list[str] = Field(default_factory=list, description="Tags to attach.")
+    remove: list[str] = Field(default_factory=list, description="Tags to detach.")
+
+    @field_validator("add", "remove")
+    @classmethod
+    def validate_tags(cls, v: list[str]) -> list[str]:
+        return normalize_tags(v)
 
 class CreateRestaurantReviewRequest(BaseModel):
     restaurant_id: str = Field(..., description="ID of the restaurant being reviewed.")
@@ -220,6 +229,13 @@ class GetRestaurantByIdResponse(BaseModel):
     restaurant: dict | None
 
 class DeleteRestaurantResponse(BaseModel):
+    success: bool
+
+class ListTagsResponse(BaseModel):
+    tags: list[str]
+
+class UpdateRestaurantTagsResponse(BaseModel):
+    tags: list[str]
     success: bool
 
 class CreateRestaurantReviewResponse(BaseModel):

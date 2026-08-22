@@ -1,16 +1,14 @@
-import { cuisineIconSvg } from '@/constants/CuisineMapIcons'
+import { RESTAURANT_GLYPH_PATH } from '@/constants/MapGlyph'
 
 const GLYPH_VIEWBOX = 256
 
 export default function RestaurantPin({
-  cuisine,
   background,
   ring = '#ffffff',
   size = 38,
   glyphSize = 20,
   selected = false,
 }: {
-  cuisine: string
   background: string
   ring?: string
   size?: number
@@ -38,7 +36,7 @@ export default function RestaurantPin({
     >
       <circle cx={size / 2} cy={size / 2} r={radius} fill={background} stroke={ring} strokeWidth={2} />
       <g transform={`translate(${inset} ${inset}) scale(${scale})`}>
-        <path d={cuisineIconSvg(cuisine)} fill="#ffffff" />
+        <path d={RESTAURANT_GLYPH_PATH} fill="#ffffff" />
       </g>
     </svg>
   )

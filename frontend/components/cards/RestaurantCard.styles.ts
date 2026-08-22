@@ -7,21 +7,11 @@ export const createStyles = (colors: ThemeColors, shadows: ThemeShadows) => Styl
     borderRadius: 12,
     padding: 16,
     cursor: 'pointer' as any,
-    flexDirection: 'row',
-    gap: 14,
     ...shadows.card,
   },
   cardPressed: {
     opacity: 0.85,
     transform: [{ scale: 0.98 }],
-  },
-  emblem: {
-    width: 52,
-    borderRadius: 10,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'stretch',
   },
   cardContent: {
     flex: 1,
@@ -47,19 +37,6 @@ export const createStyles = (colors: ThemeColors, shadows: ThemeShadows) => Styl
     fontWeight: 'bold',
     letterSpacing: -0.3,
     flexShrink: 1,
-  },
-  cuisineBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.backgroundButton,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  cuisine: {
-    color: colors.textTertiary,
-    fontSize: 13,
   },
   locationRow: {
     flexDirection: 'row',

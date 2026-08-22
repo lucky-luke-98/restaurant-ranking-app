@@ -24,13 +24,14 @@ import DateInput from '@/components/inputs/DateInput'
 import { useTranslation } from '@/services/LanguageContext'
 import { useThemeColors } from '@/hooks/useThemeColors'
 import { createStyles } from './RestaurantsScreen.styles'
-import { CUISINE_TYPES, CUISINE_LABEL_KEYS, type CuisineType } from '@/constants/CuisineTypes'
+import TagPicker from '@/components/tags/TagPicker'
+import { isDefaultTag } from '@/constants/Tags'
 
 interface Restaurant {
   restaurant_id: string
   google_place_id: string
   name: string
-  cuisine_type: string
+  tags?: string[]
   street: string
   city: string
   country: string
@@ -75,12 +76,12 @@ export default function RestaurantsScreen() {
   const [filterFrom, setFilterFrom] = useState('')
   const [filterTo, setFilterTo] = useState('')
   const [filterName, setFilterName] = useState('')
-  const [filterCuisine, setFilterCuisine] = useState<CuisineType | null>(null)
+  const [filterTags, setFilterTags] = useState<string[]>([])
   // Draft state for the modal (applied on "Apply")
   const [draftFrom, setDraftFrom] = useState('')
   const [draftTo, setDraftTo] = useState('')
   const [draftName, setDraftName] = useState('')
-  const [draftCuisine, setDraftCuisine] = useState<CuisineType | null>(null)
+  const [draftTags, setDraftTags] = useState<string[]>([])
 
   const fetchAllData = useCallback(() => {
     setLoading(true)
@@ -159,7 +160,7 @@ export default function RestaurantsScreen() {
     return map
   }, [wishlistEntries])
 
-  const hasActiveFilters = !!(filterName || filterCuisine || filterFrom || filterTo)
+  const hasActiveFilters = !!(filterName || filterTags.length || filterFrom || filterTo)
 
   const filteredRestaurants = useMemo(() => {
       const filtered = restaurants.filter((r) => {
@@ -177,7 +178,7 @@ export default function RestaurantsScreen() {
           return false
         }
         if (filterName && !r.name.toLowerCase().includes(filterName.toLowerCase())) return false
-        if (filterCuisine && r.cuisine_type !== filterCuisine) return false
+        if (filterTags.some((tag) => !(r.tags ?? []).includes(tag))) return false
         return true
       })
       if (activeTab === 'visited') {
@@ -198,7 +199,7 @@ export default function RestaurantsScreen() {
       }
       return filtered
     },
-    [restaurants, visitedIds, wishlistIds, activeTab, filterFrom, filterTo, foodStats, visitedCreatedAt, filterName, filterCuisine],
+    [restaurants, visitedIds, wishlistIds, activeTab, filterFrom, filterTo, foodStats, visitedCreatedAt, filterName, filterTags],
   )
 
   const wishlistRestaurants = useMemo(
@@ -206,10 +207,17 @@ export default function RestaurantsScreen() {
     [restaurants, wishlistIds],
   )
 
-  const handleAddToWishlist = async (googlePlaceId: string, cuisineType: string, comment: string) => {
+  // Every restaurant is already loaded here, so the custom-tag vocabulary comes free.
+  const knownTags = useMemo(
+    () => Array.from(new Set(restaurants.flatMap((r) => r.tags ?? []))).filter((tag) => !isDefaultTag(tag)),
+    [restaurants],
+  )
+  const canCreateTags = user?.role === 'admin'
+
+  const handleAddToWishlist = async (googlePlaceId: string, tags: string[], comment: string) => {
     const res = await apiClient.post<{ restaurant_id: string; success: boolean }>(
       '/restaurant',
-      { google_place_id: googlePlaceId, cuisine_type: cuisineType },
+      { google_place_id: googlePlaceId, tags },
     )
     await apiClient.post('/wishlist', {
       restaurant_id: res.restaurant_id,
@@ -229,10 +237,10 @@ export default function RestaurantsScreen() {
     fetchAllData()
   }
 
-  const handleAddVisitedFromSearch = async (googlePlaceId: string, cuisineType: string) => {
+  const handleAddVisitedFromSearch = async (googlePlaceId: string, tags: string[]) => {
     const res = await apiClient.post<{ restaurant_id: string; success: boolean }>(
       '/restaurant',
-      { google_place_id: googlePlaceId, cuisine_type: cuisineType },
+      { google_place_id: googlePlaceId, tags },
     )
     await apiClient.post('/visited', {
       restaurant_id: res.restaurant_id,
@@ -243,12 +251,12 @@ export default function RestaurantsScreen() {
     name: string,
     latitude: number,
     longitude: number,
-    cuisineType: string,
+    tags: string[],
     comment: string,
   ) => {
     const res = await apiClient.post<{ restaurant_id: string; success: boolean }>(
       '/restaurant/manual',
-      { name, cuisine_type: cuisineType, latitude, longitude },
+      { name, tags, latitude, longitude },
     )
     await apiClient.post('/wishlist', {
       restaurant_id: res.restaurant_id,
@@ -260,11 +268,11 @@ export default function RestaurantsScreen() {
     name: string,
     latitude: number,
     longitude: number,
-    cuisineType: string,
+    tags: string[],
   ) => {
     const res = await apiClient.post<{ restaurant_id: string; success: boolean }>(
       '/restaurant/manual',
-      { name, cuisine_type: cuisineType, latitude, longitude },
+      { name, tags, latitude, longitude },
     )
     await apiClient.post('/visited', {
       restaurant_id: res.restaurant_id,
@@ -332,7 +340,7 @@ export default function RestaurantsScreen() {
               <Pressable
                 onPress={() => {
                   setDraftName(filterName)
-                  setDraftCuisine(filterCuisine)
+                  setDraftTags(filterTags)
                   setDraftFrom(filterFrom)
                   setDraftTo(filterTo)
                   setFilterModalVisible(true)
@@ -434,6 +442,8 @@ export default function RestaurantsScreen() {
         }}
         onSubmit={handleAddToWishlist}
         onSubmitManual={handleAddManualToWishlist}
+        knownTags={knownTags}
+        canCreate={canCreateTags}
       />
 
       {/* Visited tab: pick from wishlist or Google search */}
@@ -448,6 +458,8 @@ export default function RestaurantsScreen() {
         onSelectFromWishlist={handleAddVisitedFromWishlist}
         onSubmitFromSearch={handleAddVisitedFromSearch}
         onSubmitManual={handleAddManualRestaurant}
+        knownTags={knownTags}
+        canCreate={canCreateTags}
       />
 
       <EditWishlistCommentModal
@@ -497,33 +509,14 @@ export default function RestaurantsScreen() {
               autoCapitalize="none"
             />
 
-            <Text style={styles.filterSectionLabel}>{t.filterByCuisine}</Text>
-            <ScrollView horizontal={false} style={{ maxHeight: 120 }}>
-              <View style={styles.cuisineChipsWrap}>
-                <Pressable
-                  style={[styles.cuisineChip, !draftCuisine && styles.cuisineChipActive]}
-                  onPress={() => setDraftCuisine(null)}
-                >
-                  <Text style={[styles.cuisineChipText, !draftCuisine && styles.cuisineChipTextActive]}>
-                    {t.allCuisines}
-                  </Text>
-                </Pressable>
-                {CUISINE_TYPES.map((c) => {
-                  const active = draftCuisine === c
-                  const labelKey = CUISINE_LABEL_KEYS[c] as keyof typeof t
-                  return (
-                    <Pressable
-                      key={c}
-                      style={[styles.cuisineChip, active && styles.cuisineChipActive]}
-                      onPress={() => setDraftCuisine(active ? null : c)}
-                    >
-                      <Text style={[styles.cuisineChipText, active && styles.cuisineChipTextActive]}>
-                        {t[labelKey] as string}
-                      </Text>
-                    </Pressable>
-                  )
-                })}
-              </View>
+            <Text style={styles.filterSectionLabel}>{t.filterByTags}</Text>
+            <ScrollView style={{ maxHeight: 220 }} keyboardShouldPersistTaps="handled">
+              <TagPicker
+                selected={draftTags}
+                onChange={setDraftTags}
+                knownTags={knownTags}
+                maxSelected={Infinity}
+              />
             </ScrollView>
 
             {activeTab === 'visited' && (
@@ -545,11 +538,11 @@ export default function RestaurantsScreen() {
                 style={styles.filterClearButton}
                 onPress={() => {
                   setDraftName('')
-                  setDraftCuisine(null)
+                  setDraftTags([])
                   setDraftFrom('')
                   setDraftTo('')
                   setFilterName('')
-                  setFilterCuisine(null)
+                  setFilterTags([])
                   setFilterFrom('')
                   setFilterTo('')
                   setFilterModalVisible(false)
@@ -561,7 +554,7 @@ export default function RestaurantsScreen() {
                 style={styles.filterApplyButton}
                 onPress={() => {
                   setFilterName(draftName)
-                  setFilterCuisine(draftCuisine)
+                  setFilterTags(draftTags)
                   setFilterFrom(draftFrom)
                   setFilterTo(draftTo)
                   setFilterModalVisible(false)

@@ -52,15 +52,6 @@ export const createStyles = (colors: ThemeColors, shadows: ThemeShadows) =>
       alignItems: 'center',
       gap: 10,
     },
-    cuisineIconWrap: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
-      backgroundColor: colors.success,
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexShrink: 0,
-    },
     titleTextWrap: {
       flex: 1,
       minWidth: 0,
@@ -70,10 +61,8 @@ export const createStyles = (colors: ThemeColors, shadows: ThemeShadows) =>
       fontSize: 16,
       fontWeight: '700',
     },
-    cuisineLabel: {
-      color: colors.textMuted,
-      fontSize: 12,
-      marginTop: 2,
+    tagsWrap: {
+      marginTop: 4,
     },
     addressRow: {
       flexDirection: 'row',

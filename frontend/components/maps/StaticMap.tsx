@@ -15,7 +15,6 @@ const TILE = 256
 interface StaticMapProps {
   latitude: number
   longitude: number
-  cuisineType: string
   height?: number
   zoom?: number
   onPress?: () => void
@@ -33,7 +32,6 @@ function project(latitude: number, longitude: number, zoom: number) {
 export default function StaticMap({
   latitude,
   longitude,
-  cuisineType,
   height = 140,
   zoom = 13,
   onPress,
@@ -123,7 +121,7 @@ export default function StaticMap({
               transform: 'translate(-50%, -50%)',
             }}
           >
-            <RestaurantPin cuisine={cuisineType} background={colors.success} ring={colors.backgroundElevated} />
+            <RestaurantPin background={colors.success} ring={colors.backgroundElevated} />
           </div>
         )}
 

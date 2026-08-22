@@ -4,11 +4,7 @@ import { HeartIcon, MapPinIcon, StarIcon, CheckIcon } from 'phosphor-react-nativ
 import apiClient from '@/services/apiClient'
 import { useTranslation } from '@/services/LanguageContext'
 import { useThemeColors, useThemeShadows } from '@/hooks/useThemeColors'
-import {
-  CUISINE_ICONS,
-  CUISINE_LABEL_KEYS,
-  type CuisineType,
-} from '@/constants/CuisineTypes'
+import TagRow from '@/components/tags/TagRow'
 import StaticMap from '@/components/maps/StaticMap'
 import EditWishlistCommentModal from '@/components/modals/EditWishlistCommentModal'
 import { createStyles } from './RestaurantVisitCard.styles'
@@ -16,7 +12,7 @@ import { createStyles } from './RestaurantVisitCard.styles'
 interface FeedRestaurant {
   restaurant_id: string
   name: string
-  cuisine_type?: string | null
+  tags?: string[] | null
   street?: string | null
   city?: string | null
   latitude?: number | null
@@ -94,12 +90,6 @@ export default function RestaurantVisitCard({
   const relativeTime = useRelativeTime(visitedAt ?? createdAt)
   const authorName = author.first_name || t.anonymous
 
-  const cuisineKey = restaurant.cuisine_type as CuisineType | undefined
-  const CuisineIcon = cuisineKey && CUISINE_ICONS[cuisineKey] ? CUISINE_ICONS[cuisineKey] : null
-  const cuisineLabel = cuisineKey && CUISINE_LABEL_KEYS[cuisineKey]
-    ? (t[CUISINE_LABEL_KEYS[cuisineKey] as keyof typeof t] as string)
-    : ''
-
   const address = [restaurant.street, restaurant.city].filter(Boolean).join(', ')
   const hasCoords = restaurant.latitude != null && restaurant.longitude != null
   const hasRating = typeof restaurant.avg_rating === 'number'
@@ -152,20 +142,13 @@ export default function RestaurantVisitCard({
         onPress={() => onOpenRestaurant(restaurant.restaurant_id)}
       >
         <View style={styles.titleRow}>
-          {CuisineIcon ? (
-            <View style={styles.cuisineIconWrap}>
-              <CuisineIcon size={20} color="#fff" weight="fill" />
-            </View>
-          ) : null}
           <View style={styles.titleTextWrap}>
             <Text style={styles.name} numberOfLines={1}>
               {restaurant.name}
             </Text>
-            {cuisineLabel ? (
-              <Text style={styles.cuisineLabel} numberOfLines={1}>
-                {cuisineLabel}
-              </Text>
-            ) : null}
+            <View style={styles.tagsWrap}>
+              <TagRow tags={restaurant.tags ?? []} maxVisible={3} compact />
+            </View>
           </View>
         </View>
 
@@ -211,7 +194,6 @@ export default function RestaurantVisitCard({
           <StaticMap
             latitude={restaurant.latitude!}
             longitude={restaurant.longitude!}
-            cuisineType={restaurant.cuisine_type ?? 'others'}
             height={140}
             zoom={13}
             onPress={handleOpenMaps}

@@ -16,7 +16,7 @@ import { useThemeColors } from '@/hooks/useThemeColors'
 import { createStyles } from './AddWishlistModal.styles'
 import { useWebModalEffects } from '@/hooks/useWebModalEffects'
 import { MagnifyingGlassIcon, CaretLeftIcon } from 'phosphor-react-native'
-import { CUISINE_TYPES, CUISINE_ICONS, CUISINE_LABEL_KEYS, type CuisineType } from '@/constants/CuisineTypes'
+import TagPicker from '@/components/tags/TagPicker'
 import PinDropMap from '@/components/maps/PinDropMap'
 
 interface PlaceResult {
@@ -33,8 +33,10 @@ interface AddWishlistModalProps {
   visible: boolean
   onClose: () => void
   onCreated: () => void
-  onSubmit: (googlePlaceId: string, cuisineType: CuisineType, comment: string) => Promise<void>
-  onSubmitManual: (name: string, latitude: number, longitude: number, cuisineType: CuisineType, comment: string) => Promise<void>
+  onSubmit: (googlePlaceId: string, tags: string[], comment: string) => Promise<void>
+  onSubmitManual: (name: string, latitude: number, longitude: number, tags: string[], comment: string) => Promise<void>
+  knownTags: string[]
+  canCreate: boolean
 }
 
 export default function AddWishlistModal({
@@ -43,6 +45,8 @@ export default function AddWishlistModal({
   onCreated,
   onSubmit,
   onSubmitManual,
+  knownTags,
+  canCreate,
 }: AddWishlistModalProps) {
   const { t } = useTranslation()
   const colors = useThemeColors()
@@ -61,6 +65,7 @@ export default function AddWishlistModal({
   const [manualLat, setManualLat] = useState<number | null>(null)
   const [manualLng, setManualLng] = useState<number | null>(null)
   const [manualDetailsConfirmed, setManualDetailsConfirmed] = useState(false)
+  const [tags, setTags] = useState<string[]>([])
 
   useEffect(() => {
     if (!visible) {
@@ -74,6 +79,7 @@ export default function AddWishlistModal({
       setManualLat(null)
       setManualLng(null)
       setManualDetailsConfirmed(false)
+      setTags([])
       setError(null)
     }
   }, [visible])
@@ -99,12 +105,12 @@ export default function AddWishlistModal({
     }
   }
 
-  const handleSelectCuisine = async (cuisineType: CuisineType) => {
+  const handleSubmitFromSearch = async () => {
     if (!selectedPlace) return
     setSubmitting(true)
     setError(null)
     try {
-      await onSubmit(selectedPlace.google_place_id, cuisineType, comment.trim())
+      await onSubmit(selectedPlace.google_place_id, tags, comment.trim())
       onCreated()
     } catch (err: any) {
       setError(err.message ?? t.failedCreateRestaurant)
@@ -113,12 +119,12 @@ export default function AddWishlistModal({
     }
   }
 
-  const handleSelectManualCuisine = async (cuisineType: CuisineType) => {
+  const handleSubmitManual = async () => {
     if (manualLat == null || manualLng == null) return
     setSubmitting(true)
     setError(null)
     try {
-      await onSubmitManual(manualName.trim(), manualLat, manualLng, cuisineType, comment.trim())
+      await onSubmitManual(manualName.trim(), manualLat, manualLng, tags, comment.trim())
       onCreated()
     } catch (err: any) {
       setError(err.message ?? t.addressNotFound)
@@ -238,24 +244,21 @@ export default function AddWishlistModal({
               <Text style={styles.charCount}>
                 {t.charsRemaining(WISHLIST_COMMENT_MAX - comment.length)}
               </Text>
-              <Text style={styles.cuisinePrompt}>{t.selectCuisineType}</Text>
-              <View style={styles.cuisineGrid}>
-                {CUISINE_TYPES.map((ct) => {
-                  const Icon = CUISINE_ICONS[ct]
-                  const labelKey = CUISINE_LABEL_KEYS[ct] as keyof typeof t
-                  return (
-                    <Pressable
-                      key={ct}
-                      style={({ pressed }) => [styles.cuisineChip, pressed && styles.cuisineChipPressed]}
-                      onPress={() => (mode === 'manual' ? handleSelectManualCuisine(ct) : handleSelectCuisine(ct))}
-                      disabled={submitting}
-                    >
-                      <Icon size={20} color={colors.text} weight="duotone" />
-                      <Text style={styles.cuisineChipText}>{t[labelKey] as string}</Text>
-                    </Pressable>
-                  )
-                })}
-              </View>
+              <Text style={styles.tagsPrompt}>{t.selectTags}</Text>
+              <TagPicker
+                selected={tags}
+                onChange={setTags}
+                knownTags={knownTags}
+                canCreate={canCreate}
+                disabled={submitting}
+              />
+              <Pressable
+                style={[styles.continueButton, submitting && styles.continueButtonDisabled]}
+                onPress={() => (mode === 'manual' ? handleSubmitManual() : handleSubmitFromSearch())}
+                disabled={submitting}
+              >
+                <Text style={styles.continueButtonText}>{t.add}</Text>
+              </Pressable>
             </ScrollView>
           ) : mode === 'search' ? (
             <>

@@ -137,34 +137,11 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  cuisinePrompt: {
+  tagsPrompt: {
     color: colors.textTertiary,
     fontSize: 15,
     fontWeight: '600',
     marginBottom: 14,
-  },
-  cuisineGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingBottom: 16,
-  },
-  cuisineChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: colors.backgroundInput,
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-  cuisineChipPressed: {
-    backgroundColor: colors.backgroundButtonStrong,
-  },
-  cuisineChipText: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: '500',
   },
   submittingOverlay: {
     position: 'absolute',

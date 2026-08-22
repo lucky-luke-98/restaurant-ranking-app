@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { View, Text, Pressable, ScrollView } from 'react-native'
 import { XIcon, MagnifyingGlassPlusIcon } from 'phosphor-react-native'
 import type { ThemeColors } from '@/constants/Colors'
-import { cuisineIconSvg } from '@/constants/CuisineMapIcons'
+import { RESTAURANT_GLYPH_PATH } from '@/constants/MapGlyph'
 import type { MapRestaurant } from './RestaurantMap'
 import { createClusterSheetStyles } from './ClusterSheet.styles'
 
@@ -24,7 +24,7 @@ export default function ClusterSheet({
   total,
   colors,
   statsByRestaurantId,
-  cuisineLabelFor,
+  tagsLabelFor,
   labels,
   onSelect,
   onZoom,
@@ -34,7 +34,7 @@ export default function ClusterSheet({
   total: number
   colors: ThemeColors
   statsByRestaurantId: Map<string, ClusterStats>
-  cuisineLabelFor: (cuisine: string) => string
+  tagsLabelFor: (tags: string[]) => string
   labels: {
     title: (n: number) => string
     breakdown: (visited: number, wishlist: number) => string
@@ -93,7 +93,7 @@ export default function ClusterSheet({
             >
               <View style={[styles.glyph, { backgroundColor: accent }]}>
                 <svg width="16" height="16" viewBox="0 0 256 256" fill="#fff">
-                  <path d={cuisineIconSvg(r.cuisine_type)} />
+                  <path d={RESTAURANT_GLYPH_PATH} />
                 </svg>
               </View>
               <View style={styles.rowBody}>
@@ -101,7 +101,7 @@ export default function ClusterSheet({
                   {r.name}
                 </Text>
                 <Text style={styles.rowMeta} numberOfLines={1}>
-                  {cuisineLabelFor(r.cuisine_type)}
+                  {tagsLabelFor(r.tags)}
                 </Text>
               </View>
               {hasRating ? (

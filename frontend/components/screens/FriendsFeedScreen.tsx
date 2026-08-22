@@ -19,7 +19,7 @@ import { createStyles } from './FriendsFeedScreen.styles'
 interface FeedRestaurant {
   restaurant_id: string
   name: string
-  cuisine_type?: string | null
+  tags?: string[] | null
   street?: string | null
   city?: string | null
   latitude?: number | null

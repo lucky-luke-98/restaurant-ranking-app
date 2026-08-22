@@ -16,7 +16,7 @@ import { useThemeColors } from '@/hooks/useThemeColors'
 import { createStyles } from './AddVisitedModal.styles'
 import { useWebModalEffects } from '@/hooks/useWebModalEffects'
 import { MagnifyingGlassIcon, HeartIcon, CaretLeftIcon, PencilSimpleIcon } from 'phosphor-react-native'
-import { CUISINE_TYPES, CUISINE_ICONS, CUISINE_LABEL_KEYS, type CuisineType } from '@/constants/CuisineTypes'
+import TagPicker from '@/components/tags/TagPicker'
 import PinDropMap from '@/components/maps/PinDropMap'
 
 interface PlaceResult {
@@ -28,7 +28,7 @@ interface PlaceResult {
 interface WishlistRestaurant {
   restaurant_id: string
   name: string
-  cuisine_type: string
+  tags?: string[]
   street: string
   city: string
 }
@@ -41,8 +41,10 @@ interface AddVisitedModalProps {
   onCreated: () => void
   wishlistRestaurants: WishlistRestaurant[]
   onSelectFromWishlist: (restaurantId: string) => Promise<void>
-  onSubmitFromSearch: (googlePlaceId: string, cuisineType: CuisineType) => Promise<void>
-  onSubmitManual: (name: string, latitude: number, longitude: number, cuisineType: CuisineType) => Promise<void>
+  onSubmitFromSearch: (googlePlaceId: string, tags: string[]) => Promise<void>
+  onSubmitManual: (name: string, latitude: number, longitude: number, tags: string[]) => Promise<void>
+  knownTags: string[]
+  canCreate: boolean
 }
 
 export default function AddVisitedModal({
@@ -53,6 +55,8 @@ export default function AddVisitedModal({
   onSelectFromWishlist,
   onSubmitFromSearch,
   onSubmitManual,
+  knownTags,
+  canCreate,
 }: AddVisitedModalProps) {
   const { t } = useTranslation()
   const colors = useThemeColors()
@@ -70,6 +74,7 @@ export default function AddVisitedModal({
   const [manualLat, setManualLat] = useState<number | null>(null)
   const [manualLng, setManualLng] = useState<number | null>(null)
   const [manualDetailsConfirmed, setManualDetailsConfirmed] = useState(false)
+  const [tags, setTags] = useState<string[]>([])
 
   useEffect(() => {
     if (!visible) {
@@ -82,6 +87,7 @@ export default function AddVisitedModal({
       setManualLat(null)
       setManualLng(null)
       setManualDetailsConfirmed(false)
+      setTags([])
       setError(null)
     }
   }, [visible])
@@ -111,12 +117,12 @@ export default function AddVisitedModal({
     setSelectedPlace(place)
   }
 
-  const handleSelectCuisine = async (cuisineType: CuisineType) => {
+  const handleSubmitFromSearch = async () => {
     if (!selectedPlace) return
     setSubmitting(true)
     setError(null)
     try {
-      await onSubmitFromSearch(selectedPlace.google_place_id, cuisineType)
+      await onSubmitFromSearch(selectedPlace.google_place_id, tags)
       onCreated()
     } catch (err: any) {
       setError(err.message ?? t.failedAddRestaurant)
@@ -125,12 +131,12 @@ export default function AddVisitedModal({
     }
   }
 
-  const handleSelectManualCuisine = async (cuisineType: CuisineType) => {
+  const handleSubmitManual = async () => {
     if (manualLat == null || manualLng == null) return
     setSubmitting(true)
     setError(null)
     try {
-      await onSubmitManual(manualName.trim(), manualLat, manualLng, cuisineType)
+      await onSubmitManual(manualName.trim(), manualLat, manualLng, tags)
       onCreated()
     } catch (err: any) {
       setError(err.message ?? t.addressNotFound)
@@ -331,24 +337,21 @@ export default function AddVisitedModal({
 
           {mode === 'search' && selectedPlace && (
             <ScrollView keyboardShouldPersistTaps="handled">
-              <Text style={styles.cuisinePrompt}>{t.selectCuisineType}</Text>
-              <View style={styles.cuisineGrid}>
-                {CUISINE_TYPES.map((ct) => {
-                  const Icon = CUISINE_ICONS[ct]
-                  const labelKey = CUISINE_LABEL_KEYS[ct] as keyof typeof t
-                  return (
-                    <Pressable
-                      key={ct}
-                      style={({ pressed }) => [styles.cuisineChip, pressed && styles.cuisineChipPressed]}
-                      onPress={() => handleSelectCuisine(ct)}
-                      disabled={submitting}
-                    >
-                      <Icon size={20} color={colors.text} weight="duotone" />
-                      <Text style={styles.cuisineChipText}>{t[labelKey] as string}</Text>
-                    </Pressable>
-                  )
-                })}
-              </View>
+              <Text style={styles.tagsPrompt}>{t.selectTags}</Text>
+              <TagPicker
+                selected={tags}
+                onChange={setTags}
+                knownTags={knownTags}
+                canCreate={canCreate}
+                disabled={submitting}
+              />
+              <Pressable
+                style={[styles.continueButton, submitting && styles.continueButtonDisabled]}
+                onPress={handleSubmitFromSearch}
+                disabled={submitting}
+              >
+                <Text style={styles.continueButtonText}>{t.add}</Text>
+              </Pressable>
             </ScrollView>
           )}
 
@@ -388,24 +391,21 @@ export default function AddVisitedModal({
 
           {mode === 'manual' && manualDetailsConfirmed && (
             <ScrollView keyboardShouldPersistTaps="handled">
-              <Text style={styles.cuisinePrompt}>{t.selectCuisineType}</Text>
-              <View style={styles.cuisineGrid}>
-                {CUISINE_TYPES.map((ct) => {
-                  const Icon = CUISINE_ICONS[ct]
-                  const labelKey = CUISINE_LABEL_KEYS[ct] as keyof typeof t
-                  return (
-                    <Pressable
-                      key={ct}
-                      style={({ pressed }) => [styles.cuisineChip, pressed && styles.cuisineChipPressed]}
-                      onPress={() => handleSelectManualCuisine(ct)}
-                      disabled={submitting}
-                    >
-                      <Icon size={20} color={colors.text} weight="duotone" />
-                      <Text style={styles.cuisineChipText}>{t[labelKey] as string}</Text>
-                    </Pressable>
-                  )
-                })}
-              </View>
+              <Text style={styles.tagsPrompt}>{t.selectTags}</Text>
+              <TagPicker
+                selected={tags}
+                onChange={setTags}
+                knownTags={knownTags}
+                canCreate={canCreate}
+                disabled={submitting}
+              />
+              <Pressable
+                style={[styles.continueButton, submitting && styles.continueButtonDisabled]}
+                onPress={handleSubmitManual}
+                disabled={submitting}
+              >
+                <Text style={styles.continueButtonText}>{t.add}</Text>
+              </Pressable>
             </ScrollView>
           )}
 

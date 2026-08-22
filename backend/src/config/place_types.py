@@ -12,6 +12,8 @@ places have no dedicated type and get tagged food_store/butcher_shop).
 https://developers.google.com/maps/documentation/places/web-service/place-types
 """
 
+from src.config.tags import DEFAULT_TAGS
+
 FOOD_PLACE_TYPES: frozenset[str] = frozenset({
     # generic
     "restaurant", "bistro", "bar", "pub", "cafe", "bakery",
@@ -81,3 +83,143 @@ def is_food_place(types: list[str] | None) -> bool:
     if not types:
         return False
     return not FOOD_PLACE_TYPES.isdisjoint(types)
+
+
+# Google place type -> our tag slugs. Only tags from ``DEFAULT_TAGS`` may appear here,
+# asserted at import time below — a typo here would otherwise be invisible, producing a
+# tag no picker can render and no non-admin can apply.
+#
+# Deliberately partial. Generic types (``restaurant``, ``bistro``, ``diner``) carry no
+# information worth a tag, and Google's taxonomy has no equivalent for most of the
+# Levantine/Turkish dish tags (döner, lahmacun, pide, börek, manti, mezze, baklava) —
+# those come from the picker, not from here.
+GOOGLE_TYPE_TAGS: dict[str, tuple[str, ...]] = {
+    # regional
+    "italian_restaurant": ("italian",),
+    "french_restaurant": ("french",),
+    "spanish_restaurant": ("spanish",),
+    "greek_restaurant": ("greek",),
+    "turkish_restaurant": ("turkish",),
+    "german_restaurant": ("german",),
+    "bavarian_restaurant": ("german",),
+    "austrian_restaurant": ("austrian",),
+    "croatian_restaurant": ("balkan",),
+    "romanian_restaurant": ("balkan",),
+    "asian_restaurant": ("asian",),
+    "asian_fusion_restaurant": ("asian",),
+    "noodle_shop": ("asian",),
+    "japanese_restaurant": ("japanese",),
+    "japanese_izakaya_restaurant": ("japanese",),
+    "japanese_curry_restaurant": ("japanese",),
+    "tonkatsu_restaurant": ("japanese",),
+    "yakitori_restaurant": ("japanese",),
+    "yakiniku_restaurant": ("japanese",),
+    "chinese_restaurant": ("chinese",),
+    "cantonese_restaurant": ("chinese",),
+    "chinese_noodle_restaurant": ("chinese",),
+    "dim_sum_restaurant": ("chinese",),
+    "dumpling_restaurant": ("chinese",),
+    "hot_pot_restaurant": ("chinese",),
+    "korean_restaurant": ("korean",),
+    "korean_barbecue_restaurant": ("korean", "bbq"),
+    "thai_restaurant": ("thai",),
+    "vietnamese_restaurant": ("vietnamese",),
+    "indian_restaurant": ("indian",),
+    "north_indian_restaurant": ("indian",),
+    "south_indian_restaurant": ("indian",),
+    "mexican_restaurant": ("mexican",),
+    "tex_mex_restaurant": ("mexican",),
+    "burrito_restaurant": ("mexican",),
+    "taco_restaurant": ("mexican",),
+    "american_restaurant": ("american",),
+    "californian_restaurant": ("american",),
+    "southwestern_us_restaurant": ("american",),
+    "soul_food_restaurant": ("american",),
+    # middle east & north africa
+    "middle_eastern_restaurant": ("middle eastern",),
+    "lebanese_restaurant": ("lebanese", "middle eastern"),
+    "israeli_restaurant": ("middle eastern",),
+    "persian_restaurant": ("persian", "middle eastern"),
+    "afghani_restaurant": ("afghan",),
+    "moroccan_restaurant": ("moroccan",),
+    "falafel_restaurant": ("falafel", "middle eastern"),
+    "shawarma_restaurant": ("shawarma", "middle eastern"),
+    "kebab_shop": ("kebab",),
+    "gyro_restaurant": ("kebab", "greek"),
+    "halal_restaurant": ("halal",),
+    # dish / style
+    "pizza_restaurant": ("pizza", "italian"),
+    "pizza_delivery": ("pizza", "italian"),
+    "sushi_restaurant": ("sushi", "japanese"),
+    "ramen_restaurant": ("ramen", "japanese"),
+    "hamburger_restaurant": ("burger", "american"),
+    "steak_house": ("steak",),
+    "barbecue_restaurant": ("bbq",),
+    "bar_and_grill": ("bbq", "bar"),
+    "mongolian_barbecue_restaurant": ("bbq",),
+    "seafood_restaurant": ("seafood",),
+    "oyster_bar_restaurant": ("seafood",),
+    "fish_and_chips_restaurant": ("seafood",),
+    "sandwich_shop": ("sandwiches",),
+    "bagel_shop": ("sandwiches",),
+    "deli": ("sandwiches",),
+    "tapas_restaurant": ("tapas", "spanish"),
+    # dietary
+    "vegan_restaurant": ("vegan",),
+    "vegetarian_restaurant": ("vegetarian",),
+    # venue
+    "bar": ("bar",),
+    "pub": ("pub",),
+    "irish_pub": ("pub",),
+    "gastropub": ("pub",),
+    "sports_bar": ("pub",),
+    "cocktail_bar": ("cocktail bar",),
+    "lounge_bar": ("cocktail bar",),
+    "wine_bar": ("wine bar",),
+    "winery": ("wine bar",),
+    "brewery": ("brewery",),
+    "brewpub": ("brewery",),
+    "beer_garden": ("brewery",),
+    "hookah_bar": ("shisha bar",),
+    "cafe": ("cafe",),
+    "coffee_shop": ("cafe",),
+    "coffee_roastery": ("cafe",),
+    "coffee_stand": ("cafe",),
+    "cat_cafe": ("cafe",),
+    "dog_cafe": ("cafe",),
+    "tea_house": ("tea house",),
+    "bakery": ("bakery",),
+    "pastry_shop": ("bakery",),
+    "cake_shop": ("bakery",),
+    "donut_shop": ("bakery",),
+    "dessert_shop": ("bakery",),
+    "ice_cream_shop": ("ice cream",),
+    "acai_shop": ("ice cream",),
+    "fine_dining_restaurant": ("fine dining",),
+    "food_court": ("street food",),
+    "snack_bar": ("street food",),
+    "hot_dog_stand": ("street food",),
+    "fast_food_restaurant": ("street food",),
+}
+
+
+assert not [t for tags in GOOGLE_TYPE_TAGS.values() for t in tags if t not in DEFAULT_TAGS], (
+    "GOOGLE_TYPE_TAGS maps to tags outside DEFAULT_TAGS"
+)
+
+
+def tags_for_place_types(types: list[str] | None) -> list[str]:
+    """Derive tag slugs from a place's Google types, most specific first.
+
+    Google orders ``types`` with the primary type first, so iterating in order means
+    a sushi bar yields ``["sushi", "japanese"]`` — the specific tag survives if the
+    caller has to trim the list.
+    """
+    if not types:
+        return []
+    derived: list[str] = []
+    for gt in types:
+        for tag in GOOGLE_TYPE_TAGS.get(gt, ()):
+            if tag not in derived:
+                derived.append(tag)
+    return derived

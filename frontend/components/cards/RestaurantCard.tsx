@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router'
 import { MapPinIcon, CaretRightIcon, StarIcon, TrashIcon, CalendarIcon, NotepadIcon, PencilSimpleIcon } from 'phosphor-react-native'
 import { useTranslation } from '@/services/LanguageContext'
 import { useThemeColors, useThemeShadows } from '@/hooks/useThemeColors'
-import { CUISINE_ICONS, CUISINE_LABEL_KEYS, type CuisineType } from '@/constants/CuisineTypes'
+import TagRow from '@/components/tags/TagRow'
 import { createStyles } from './RestaurantCard.styles'
 
 interface FoodReviewStats {
@@ -16,7 +16,7 @@ interface FoodReviewStats {
 interface Restaurant {
   restaurant_id: string
   name: string
-  cuisine_type: string
+  tags?: string[]
   street: string
   city: string
 }
@@ -42,11 +42,6 @@ export default function RestaurantCard({ restaurant, stats, onDelete, wishlistCo
   const shadows = useThemeShadows()
   const styles = useMemo(() => createStyles(colors, shadows), [colors, shadows])
 
-  const cuisineKey = restaurant.cuisine_type as CuisineType
-  const CuisineIcon = CUISINE_ICONS[cuisineKey] ?? CUISINE_ICONS.others
-  const cuisineLabelKey = CUISINE_LABEL_KEYS[cuisineKey] as keyof typeof t | undefined
-  const cuisineLabel = cuisineLabelKey ? (t[cuisineLabelKey] as string) : restaurant.cuisine_type
-
   return (
     <Pressable
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
@@ -57,17 +52,12 @@ export default function RestaurantCard({ restaurant, stats, onDelete, wishlistCo
         })
       }
     >
-      <View style={styles.emblem}>
-        <CuisineIcon size={26} color="#fff" weight="duotone" />
-      </View>
       <View style={styles.cardContent}>
         <View style={styles.topRow}>
           <View style={styles.topLeft}>
             <View style={styles.header}>
               <Text style={styles.name} numberOfLines={1}>{restaurant.name}</Text>
-              <View style={styles.cuisineBadge}>
-                <Text style={styles.cuisine}>{cuisineLabel}</Text>
-              </View>
+              <TagRow tags={restaurant.tags ?? []} maxVisible={2} compact />
             </View>
             <View style={styles.locationRow}>
               <MapPinIcon size={14} color={colors.textMuted} />

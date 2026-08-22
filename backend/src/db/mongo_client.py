@@ -23,7 +23,7 @@ class MongoDBClient:
         logger.info("MongoDB client initialized successfully")
 
     def _ensure_indexes(self):
-        """Create unique indexes to enforce data integrity at the database level."""
+        """Create the indexes the app relies on for integrity and lookup."""
         if self._db is None:
             return
         self._db[settings.mongo_users_collection].create_index(
@@ -34,6 +34,7 @@ class MongoDBClient:
             unique=True,
             partialFilterExpression={"google_place_id": {"$type": "string"}},
         )
+        self._db[settings.mongo_restaurants_collection].create_index([("tags", ASCENDING)])
 
     def close(self):
         if self._client:

@@ -195,7 +195,7 @@ class ReviewService:
             r["restaurant_id"]: {
                 "restaurant_id": r["restaurant_id"],
                 "name": r.get("name", ""),
-                "cuisine_type": r.get("cuisine_type"),
+                "tags": r.get("tags") or [],
                 "street": r.get("street"),
                 "city": r.get("city"),
                 "latitude": r.get("latitude"),

@@ -71,12 +71,26 @@ class MongoRestaurantRepository(MongoRepository, RestaurantRepository):
     def list_all(self) -> list[dict]:
         return _strip_all(list(self._collection.find({}, session=self._session)))
 
-    def set_cuisine_type(self, restaurant_id: str, cuisine_type: str) -> None:
+    def add_tags(self, restaurant_id: str, tags: list[str]) -> None:
+        if not tags:
+            return
         self._collection.update_one(
             {"restaurant_id": restaurant_id},
-            {"$set": {"cuisine_type": cuisine_type}},
+            {"$addToSet": {"tags": {"$each": tags}}},
             session=self._session,
         )
+
+    def remove_tags(self, restaurant_id: str, tags: list[str]) -> None:
+        if not tags:
+            return
+        self._collection.update_one(
+            {"restaurant_id": restaurant_id},
+            {"$pullAll": {"tags": tags}},
+            session=self._session,
+        )
+
+    def distinct_tags(self) -> list[str]:
+        return sorted(self._collection.distinct("tags", session=self._session))
 
     def delete(self, restaurant_id: str) -> bool:
         result = self._collection.delete_one(
@@ -122,6 +136,16 @@ class MongoReviewRepository(MongoRepository, ReviewRepository):
             {"user_id": user_id}, {"restaurant_id": 1}, session=self._session
         )
         return list({r["restaurant_id"] for r in reviews})
+
+    def list_by_user(self, user_id: str, limit: int = 25) -> list[dict]:
+        return _strip_all(list(
+            self._collection.find(
+                {"$or": [{"user_id": user_id}, {"coauthor_ids": user_id}]},
+                session=self._session,
+            )
+            .sort("created_at", -1)
+            .limit(limit)
+        ))
 
     def update_fields(self, review_id: str, updates: dict) -> bool:
         result = self._collection.update_one(
@@ -219,6 +243,13 @@ class MongoFoodReviewRepository(MongoRepository, FoodReviewRepository):
                 {"review_id": review_id}, {"food_review_id": 1}, session=self._session
             )
         ]
+
+    def list_by_user(self, user_id: str, limit: int = 25) -> list[dict]:
+        return _strip_all(list(
+            self._collection.find({"user_id": user_id}, session=self._session)
+            .sort("created_at", -1)
+            .limit(limit)
+        ))
 
     def update_fields(self, food_review_id: str, updates: dict) -> bool:
         result = self._collection.update_one(

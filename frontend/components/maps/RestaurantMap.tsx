@@ -16,7 +16,7 @@ const FIT_MAX_ZOOM = 15
 export interface MapRestaurant {
   restaurant_id: string
   name: string
-  cuisine_type: string
+  tags: string[]
   street?: string
   city?: string
   latitude: number
@@ -48,7 +48,6 @@ type ClusterFeature = {
   total: number
   visited: number
   restaurantId?: string
-  cuisine?: string
   status?: 'visited' | 'wishlist'
 }
 
@@ -104,7 +103,6 @@ export default function RestaurantMap({
         id: r.restaurant_id,
         properties: {
           restaurant_id: r.restaurant_id,
-          cuisine_type: r.cuisine_type,
           status: r.status,
         },
         geometry: { type: 'Point' as const, coordinates: [r.longitude, r.latitude] },
@@ -174,7 +172,6 @@ export default function RestaurantMap({
           total: 1,
           visited: p.status === 'visited' ? 1 : 0,
           restaurantId: p.restaurant_id,
-          cuisine: p.cuisine_type,
           status: p.status,
         })
       }
@@ -354,7 +351,6 @@ export default function RestaurantMap({
           >
             <div title={byId.get(f.restaurantId ?? '')?.name ?? ''}>
               <RestaurantPin
-                cuisine={f.cuisine ?? 'others'}
                 background={f.status === 'visited' ? colors.success : colors.warning}
                 ring={colors.backgroundElevated}
                 selected={selectedId === f.restaurantId}
