@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react'
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import {
   View,
   Text,
@@ -22,6 +22,19 @@ import * as ImagePicker from 'expo-image-picker'
 import { useWebModalEffects } from '@/hooks/useWebModalEffects'
 
 const REVIEW_COMMENT_MAX = 1500
+
+const sanitizePriceInput = (value: string) => {
+  const cleaned = value.replace(/[^0-9.,]/g, '')
+  const sepIndex = cleaned.search(/[.,]/)
+  if (sepIndex === -1) return cleaned
+  const decimals = cleaned.slice(sepIndex + 1).replace(/[.,]/g, '').slice(0, 2)
+  return cleaned.slice(0, sepIndex) + cleaned[sepIndex] + decimals
+}
+
+const parsePrice = (value: string) => parseFloat(value.replace(',', '.'))
+
+const formatPriceInput = (value: number, language: string) =>
+  value.toFixed(2).replace('.', language === 'de' ? ',' : '.')
 
 interface Friend {
   user_id: string
@@ -84,7 +97,10 @@ export default function AddReviewModal({
   onSubmit,
 }: AddReviewModalProps) {
   const isEdit = !!initialValues
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
+  // read inside the prefill effect without making it re-run (and wipe edits) on toggle
+  const languageRef = useRef(language)
+  languageRef.current = language
   const colors = useThemeColors()
   const styles = useMemo(() => createStyles(colors), [colors])
   const { sheetStyle } = useWebModalEffects(visible)
@@ -129,7 +145,7 @@ export default function AddReviewModal({
               key: String(++foodItemKeyCounter),
               food_review_id: fi.food_review_id,
               food_name: fi.food_name,
-              price: String(fi.price),
+              price: formatPriceInput(fi.price, languageRef.current),
               rating: fi.rating,
               comment: fi.comment,
             }))
@@ -259,7 +275,7 @@ export default function AddReviewModal({
 
   const foodItemsValid = useMemo(() => {
     return foodItems.every((fi) => {
-      const priceNum = parseFloat(fi.price)
+      const priceNum = parsePrice(fi.price)
       return fi.food_name.trim().length > 0 && !isNaN(priceNum) && priceNum > 0
     })
   }, [foodItems])
@@ -272,7 +288,7 @@ export default function AddReviewModal({
       const parsedFoodItems: FoodItemEntry[] = foodItems.map((fi) => ({
         ...(fi.food_review_id ? { food_review_id: fi.food_review_id } : {}),
         food_name: fi.food_name.trim(),
-        price: parseFloat(fi.price),
+        price: parsePrice(fi.price),
         rating: fi.rating,
         comment: fi.comment.trim(),
       }))
@@ -423,7 +439,7 @@ export default function AddReviewModal({
                     <TextInput
                       style={styles.priceInput}
                       value={item.price}
-                      onChangeText={(v) => updateFoodItem(item.key, 'price', v)}
+                      onChangeText={(v) => updateFoodItem(item.key, 'price', sanitizePriceInput(v))}
                       placeholder={t.pricePlaceholder}
                       placeholderTextColor={colors.textPlaceholder}
                       keyboardType="decimal-pad"
