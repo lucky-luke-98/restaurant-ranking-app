@@ -10,6 +10,9 @@ const en = {
   you: 'You',
   anonymous: 'Anonymous',
   error: 'Error',
+  offlineTitle: 'No connection',
+  offlineMessage: 'We could not reach the server. Your saved data is still here.',
+  tryAgain: 'Try again',
 
   // Auth
   authSignIn: 'Sign In',

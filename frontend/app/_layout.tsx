@@ -8,19 +8,23 @@ import { LinearGradient } from 'expo-linear-gradient';
 import 'react-native-reanimated';
 
 import { AuthProvider, useAuth } from '@/services/AuthContext';
+import OfflineScreen from '@/components/screens/OfflineScreen';
 import { LanguageProvider, useTranslation } from '@/services/LanguageContext';
 import { AppThemeProvider, useAppTheme } from '@/services/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
 function AuthGate() {
-  const { user, loading } = useAuth();
+  const { user, loading, offline, hasSession, retry } = useAuth();
   const { t } = useTranslation();
   const segments = useSegments();
   const router = useRouter();
   const colors = useThemeColors();
 
+  // A stored session we simply could not verify is not the same as being logged out.
+  const unreachable = !user && hasSession && offline;
+
   useEffect(() => {
-    if (loading) return;
+    if (loading || unreachable) return;
 
     const onAuthScreen = segments[0] === 'auth';
 
@@ -29,7 +33,7 @@ function AuthGate() {
     } else if (user && onAuthScreen) {
       router.replace('/');
     }
-  }, [user, loading, segments]);
+  }, [user, loading, unreachable, segments]);
 
   if (loading) {
     return (
@@ -37,6 +41,10 @@ function AuthGate() {
         <ActivityIndicator size="large" />
       </View>
     );
+  }
+
+  if (unreachable) {
+    return <OfflineScreen onRetry={retry} />;
   }
 
   return (

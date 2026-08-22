@@ -12,6 +12,9 @@ const de: Translations = {
   you: 'Du',
   anonymous: 'Anonym',
   error: 'Fehler',
+  offlineTitle: 'Keine Verbindung',
+  offlineMessage: 'Der Server ist nicht erreichbar. Deine gespeicherten Daten sind weiterhin da.',
+  tryAgain: 'Erneut versuchen',
 
   // Auth
   authSignIn: 'Anmelden',
