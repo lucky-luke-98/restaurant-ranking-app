@@ -9,7 +9,7 @@ import {
   CUISINE_LABEL_KEYS,
   type CuisineType,
 } from '@/constants/CuisineTypes'
-import StaticLeafletMap from '@/components/maps/StaticLeafletMap'
+import StaticMap from '@/components/maps/StaticMap'
 import EditWishlistCommentModal from '@/components/modals/EditWishlistCommentModal'
 import { createStyles } from './RestaurantVisitCard.styles'
 
@@ -208,7 +208,7 @@ export default function RestaurantVisitCard({
 
       {hasCoords ? (
         <View style={styles.mapWrap}>
-          <StaticLeafletMap
+          <StaticMap
             latitude={restaurant.latitude!}
             longitude={restaurant.longitude!}
             cuisineType={restaurant.cuisine_type ?? 'others'}

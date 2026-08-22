@@ -74,6 +74,14 @@ const en = {
   // Map
   mapVisited: 'Visited',
   mapWishlist: 'Wishlist',
+  mapClusterTitle: (n: number) => `${n} restaurant${n === 1 ? '' : 's'} here`,
+  mapClusterBreakdown: (visited: number, wishlist: number) =>
+    `${visited} visited \u00B7 ${wishlist} on your list`,
+  mapClusterMore: (n: number) => `\u2026and ${n} more`,
+  mapZoomIn: 'Zoom in',
+  mapFitBounds: 'Fit to my restaurants',
+  mapLoadFailed: 'The map could not be loaded. Check your connection and reload.',
+  mapNoRating: 'No rating yet',
 
   // Review Card
   visited: (date: string) => `Visited ${date}`,

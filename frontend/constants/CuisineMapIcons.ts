@@ -1,9 +1,9 @@
 import { CUISINE_TYPES, type CuisineType } from './CuisineTypes'
 
 // Raw SVG "fill"-weight path d-attribute per cuisine, extracted from
-// phosphor-react-native defs. Used to render HTML markers for the Leaflet map
+// phosphor-react-native defs. Used to render map markers as inline SVG on web
 // (phosphor-react-native itself relies on react-native-svg and cannot render
-// into a DOM string). viewBox is always 0 0 256 256.
+// into the DOM). viewBox is always 0 0 256 256.
 //
 // To add a new cuisine: add its entry to CUISINE_TYPES, then paste the
 // fill-weight `d` string from
@@ -49,19 +49,4 @@ export function cuisineIconSvg(cuisine: string): string {
     return CUISINE_SVG_PATHS[key]
   }
   return CARROT_PATH
-}
-
-export function buildMarkerHtml(cuisine: string, background: string): string {
-  const path = cuisineIconSvg(cuisine)
-  return `<div style="
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    background: ${background};
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-    border: 2px solid white;
-  "><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 256 256" fill="white"><path d="${path}"/></svg></div>`
 }

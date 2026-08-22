@@ -76,6 +76,14 @@ const de: Translations = {
   // Map
   mapVisited: 'Besucht',
   mapWishlist: 'Wunschliste',
+  mapClusterTitle: (n: number) => `${n} Restaurant${n === 1 ? '' : 's'} hier`,
+  mapClusterBreakdown: (visited: number, wishlist: number) =>
+    `${visited} besucht \u00B7 ${wishlist} auf der Liste`,
+  mapClusterMore: (n: number) => `\u2026und ${n} weitere`,
+  mapZoomIn: 'Reinzoomen',
+  mapFitBounds: 'Auf meine Restaurants zoomen',
+  mapLoadFailed: 'Die Karte konnte nicht geladen werden. Pr\u00FCfe deine Verbindung und lade neu.',
+  mapNoRating: 'Noch keine Bewertung',
 
   // Review Card
   visited: (date: string) => `Besucht am ${date}`,
