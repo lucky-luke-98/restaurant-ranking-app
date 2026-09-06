@@ -201,7 +201,8 @@ export default function AddReviewModal({
   // Image handling (review-level)
   const MAX_DIMENSION = 1920
   const JPEG_QUALITY = 0.8
-  const MAX_BASE64_LENGTH = 12_000_000
+  // Must match the backend's max_image_bytes — the server silently drops anything larger.
+  const MAX_BASE64_LENGTH = 1_500_000
 
   const resizeOnWeb = (uri: string): Promise<string> =>
     new Promise((resolve, reject) => {

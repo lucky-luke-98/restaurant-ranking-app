@@ -16,10 +16,18 @@ class MongoDBClient:
         if not settings.mongo_uri:
             raise ValueError("MongoDB URI must be provided")
 
+        # Close any previous client first: the reinit path in get_mongo_collection would
+        # otherwise leak a full connection pool per recovery against Atlas M0's 500 cap.
+        self.close()
         self._client = MongoClient(settings.mongo_uri)
         db_name = settings.mongo_db
         self._db = self._client[db_name]
-        self._ensure_indexes()
+        try:
+            self._ensure_indexes()
+        except Exception as exc:
+            # A failing index build (e.g. duplicates, options conflict) must never
+            # brick startup — the app works without indexes, just without the guarantees.
+            logger.error(f"Index creation failed, continuing without: {exc}")
         logger.info("MongoDB client initialized successfully")
 
     def _ensure_indexes(self):
@@ -35,6 +43,24 @@ class MongoDBClient:
             partialFilterExpression={"google_place_id": {"$type": "string"}},
         )
         self._db[settings.mongo_restaurants_collection].create_index([("tags", ASCENDING)])
+        self._db[settings.mongo_reviews_collection].create_index(
+            [("review_id", ASCENDING)],
+            unique=True,
+            partialFilterExpression={"review_id": {"$type": "string"}},
+        )
+        self._db[settings.mongo_food_reviews_collection].create_index(
+            [("food_review_id", ASCENDING)],
+            unique=True,
+            partialFilterExpression={"food_review_id": {"$type": "string"}},
+        )
+        self._db[settings.mongo_visited_collection].create_index(
+            [("user_id", ASCENDING), ("restaurant_id", ASCENDING)],
+            unique=True,
+            partialFilterExpression={
+                "user_id": {"$type": "string"},
+                "restaurant_id": {"$type": "string"},
+            },
+        )
 
     def close(self):
         if self._client:

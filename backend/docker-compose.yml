@@ -12,3 +12,21 @@ services:
       - .env
 
     command: uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+
+  # Local single-node replica set so transactions can be developed and tested
+  # without touching Atlas. Point MONGO_URI at
+  # mongodb://localhost:27017/?directConnection=true to use it.
+  mongo:
+    image: mongo:7
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "27017:27017"
+    healthcheck:
+      # One-shot rs.initiate with an explicit localhost member, so drivers on the
+      # host machine can connect (the default would advertise the container hostname).
+      test: >
+        mongosh --quiet --eval
+        "try { rs.status().ok } catch (e) { rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'localhost:27017'}]}).ok }"
+      interval: 5s
+      timeout: 10s
+      retries: 12

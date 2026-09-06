@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     review_comment_max_length: int = Field(1500, description="Maximum character length for restaurant review and food review comments.")
     g_places_details_url: str = Field("https://places.googleapis.com/v1/places", description="The google places url to fetch details from.")
     g_places_autocomplete_url: str = Field("https://places.googleapis.com/v1/places:autocomplete", description="The google places url to fetch places information (autocompletion).")
-    max_image_bytes: int = Field(12_000_000, description="The maximum image bytes to store a review image. Limitation by storage with base64 and mongo.")
+    max_image_bytes: int = Field(1_500_000, description="The maximum base64 length to store a review image. Largest image observed in prod is 1.33MB; oversized images are silently dropped, so keep headroom above what the frontend produces.")
     nominatim_reverse_url: str = Field("https://nominatim.openstreetmap.org/reverse", description="OpenStreetMap Nominatim reverse geocoding endpoint, used to resolve a dropped map pin to an address.")
     nominatim_user_agent: str = Field("restaurant-ranking-app (contact: ljaeschke@neuland.ai)", description="User-Agent sent to Nominatim, required by its usage policy.")
 
