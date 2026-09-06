@@ -828,6 +828,10 @@ Not "later" — cut, for a 3-user app.
 
 ## 14. Deferred use cases
 
+> **Update 2026-09-07:** v1 (steps 1–7) has shipped. Concrete tool sketches for the
+> items below now live in [agent-roadmap.md](agent-roadmap.md) — extend that file, not
+> this list.
+
 Researched and worth building later, in rough value order. None are in the v1 scope above.
 
 1. **Decision support** — "I'm with Anna near Ehrenfeld, where do we go" — combining both users' history,
