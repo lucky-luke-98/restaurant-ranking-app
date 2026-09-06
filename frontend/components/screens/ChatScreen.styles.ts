@@ -49,6 +49,26 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
   transcript: {
     flex: 1,
   },
+  infoPanel: {
+    flex: 1,
+  },
+  infoPanelContent: {
+    padding: 16,
+    gap: 6,
+  },
+  infoSectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text,
+    textTransform: 'uppercase',
+    marginTop: 10,
+    marginBottom: 2,
+  },
+  infoLine: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.textMuted,
+  },
   transcriptContent: {
     padding: 16,
     gap: 10,
@@ -132,6 +152,20 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingVertical: Platform.OS === 'web' ? 10 : 8,
     // Never below 16px: iOS Safari zooms the page on focus otherwise (see +html.tsx).
     fontSize: 16,
+  },
+  micButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  micButtonActive: {
+    backgroundColor: colors.error,
+    borderColor: colors.error,
   },
   sendButton: {
     width: 42,

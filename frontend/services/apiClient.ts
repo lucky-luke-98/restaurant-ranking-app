@@ -85,6 +85,23 @@ const apiClient = {
   get<T>(path: string, options?: RequestOptions) {
     return request<T>("GET", path, undefined, options);
   },
+  /** Multipart POST (file uploads). Content-Type is left to the browser so the
+   * boundary gets set; only the auth header is added. */
+  async postForm<T>(path: string, form: FormData): Promise<T> {
+    const headers: Record<string, string> = {};
+    if (_accessToken) {
+      headers["Authorization"] = `Bearer ${_accessToken}`;
+    }
+    const response = await fetch(`${BASE_URL}${path}`, {
+      method: "POST",
+      headers,
+      body: form,
+    });
+    if (!response.ok) {
+      throw new ApiError(response.status, await response.text());
+    }
+    return response.json() as Promise<T>;
+  },
   post<T>(path: string, body?: unknown, options?: RequestOptions) {
     return request<T>("POST", path, body, options);
   },

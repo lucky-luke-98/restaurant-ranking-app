@@ -17,11 +17,13 @@ class ToolRegistry:
     def schemas() -> list[dict]:
         return TOOL_SCHEMAS
 
-    def dispatch(self, name: str, arguments_json: str) -> dict:
-        """Validate and run one tool call. Raises ``ValidationError``/``ValueError`` for
-        the caller to turn into an ``is_error`` tool result."""
+    def dispatch(self, name: str, arguments_json: str) -> tuple[dict, str | None]:
+        """Validate and run one tool call. Returns ``(result, proposes)`` where
+        ``proposes`` is the proposal kind for write-shaped tools and ``None`` for
+        read-only ones. Raises ``ValidationError``/``ValueError`` for the caller to
+        turn into an ``is_error`` tool result."""
         tool = self._tools.get(name)
         if tool is None:
             raise ValueError(f"Unknown tool '{name}'.")
         args = tool.args_model.model_validate_json(arguments_json or "{}")
-        return tool.run(args)
+        return tool.run(args), tool.proposes

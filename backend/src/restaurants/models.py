@@ -126,6 +126,7 @@ class UpdateRestaurantTagsRequest(BaseModel):
 
 class CreateRestaurantReviewRequest(BaseModel):
     restaurant_id: str = Field(..., description="ID of the restaurant being reviewed.")
+    review_id: str | None = Field(None, description="Optional caller-supplied id; used by the agent confirm path for idempotency (proposal_id becomes review_id). None lets the entity mint one.")
     cleanliness_rating: float = Field(..., ge=0.0, le=10.0, description="Cleanliness rating given by the user (1 to 10).")
     experience_rating: float = Field(..., ge=0.0, le=10.0, description="Overall experience rating given by the user (1 to 10).")
     comment: str | None = Field(None, max_length=settings.review_comment_max_length, description="Optional comment provided by the user.")

@@ -19,7 +19,7 @@ from datetime import date
 from pydantic import ValidationError
 
 from src.agent.gateways import LlmGateway
-from src.agent.models import ChatMessage
+from src.agent.models import ChatMessage, Proposal
 from src.agent.prompts import SYSTEM_PROMPT
 from src.agent.registry import ToolRegistry
 from src.config import settings
@@ -35,6 +35,11 @@ _LAST_TOOL_ITERATION = 3
 _FALLBACK_TEXT = {
     "de": "Das konnte ich gerade nicht beantworten. Formuliere die Frage bitte einmal anders.",
     "en": "I could not finish answering that. Please try rephrasing the question.",
+}
+
+_PROPOSAL_TEXT = {
+    "de": "Ich habe einen Entwurf erstellt — noch ist nichts gespeichert. Prüfe die Karte und tippe auf Speichern, oder sag mir, was ich ändern soll.",
+    "en": "I drafted this for you — nothing is saved yet. Check the card and tap Save, or tell me what to change.",
 }
 
 
@@ -79,14 +84,32 @@ class AgentService:
             calls = assistant.get("tool_calls") or []
             if not calls:
                 return self._final_answer(assistant, language)
+            proposals: list[Proposal] = []
             for call in calls:
-                result = self._invoke(registry, call)
+                result, proposal = self._invoke(registry, call)
+                if proposal is not None:
+                    proposals.append(proposal)
                 messages.append({
                     "role": "tool",
                     "tool_call_id": call["id"],
                     # ensure_ascii=False is not cosmetic: escaped umlauts cost ~3x tokens.
                     "content": json.dumps(result, ensure_ascii=False, default=str),
                 })
+            if proposals:
+                # Happy path ends here: the user-facing reply for a successful draft is
+                # composed in application code — never a 4th inference call (§3).
+                for proposal in proposals:
+                    logger.info(
+                        f"Proposal {proposal.proposal_id} kind={proposal.kind} "
+                        f"user={user_id} summary={proposal.summary!r}"
+                    )
+                text = _PROPOSAL_TEXT.get(language, _PROPOSAL_TEXT["en"])
+                dumped = [p.model_dump(mode="json") for p in proposals]
+                return {
+                    "blocks": [{"kind": "text", "text": text}]
+                    + [{"kind": "proposal", "proposal": p} for p in dumped],
+                    "proposals": dumped,
+                }
 
         # The iteration cap fired: the model kept requesting tools past the point where
         # any were offered. Degrade to a clean reply instead of burning more quota.
@@ -104,8 +127,11 @@ class AgentService:
         return {"blocks": [{"kind": "text", "text": text}], "proposals": []}
 
     @staticmethod
-    def _invoke(registry: ToolRegistry, call: dict) -> dict:
+    def _invoke(registry: ToolRegistry, call: dict) -> tuple[dict, Proposal | None]:
         """Run one tool call; ALL failures become data the model can read and retry from.
+
+        Returns ``(tool_result_content, proposal_or_none)``. For a proposing tool the
+        model sees only the id and summary — the full payload goes to the client card.
 
         Deliberately not decorated with ``@service`` (it re-raises in both branches,
         which would kill the turn and waste the tokens already spent). This is the only
@@ -114,8 +140,23 @@ class AgentService:
         function = call.get("function", {})
         name = function.get("name", "")
         try:
-            result = registry.dispatch(name, function.get("arguments") or "{}")
-            return {"kind": "data", "data": result}
+            result, proposes = registry.dispatch(name, function.get("arguments") or "{}")
+            if proposes is not None:
+                proposal = Proposal(
+                    kind=proposes,
+                    summary=result["summary"],
+                    payload=result["payload"],
+                    display=result.get("display", {}),
+                )
+                return {
+                    "kind": "data",
+                    "data": {
+                        "proposal_id": proposal.proposal_id,
+                        "summary": proposal.summary,
+                        "status": "draft shown to the user; awaiting their confirmation",
+                    },
+                }, proposal
+            return {"kind": "data", "data": result}, None
         except ValidationError as exc:
             # MUST come before ValueError (its superclass): the field-level details are
             # what lets the model self-correct.
@@ -123,9 +164,9 @@ class AgentService:
                 {"loc": list(e["loc"]), "msg": e["msg"], "type": e["type"]}
                 for e in exc.errors()
             ]
-            return {"is_error": True, "error": "invalid_arguments", "details": details}
+            return {"is_error": True, "error": "invalid_arguments", "details": details}, None
         except ValueError as exc:
-            return {"is_error": True, "error": str(exc)}
+            return {"is_error": True, "error": str(exc)}, None
         except Exception as exc:
             logger.error(f"Tool '{name}' failed unexpectedly: {exc}")
-            return {"is_error": True, "error": f"{type(exc).__name__}: {exc}"}
+            return {"is_error": True, "error": f"{type(exc).__name__}: {exc}"}, None

@@ -5,6 +5,7 @@ pymongo
 fastapi
 requests
 uvicorn
+python-multipart  # multipart form parsing for the audio-transcription upload
 
 # auth
 PyJWT

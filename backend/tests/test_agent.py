@@ -89,7 +89,8 @@ def test_get_my_reviews_cannot_be_redirected(uow):
         registry.dispatch("get_my_reviews", '{"user_id": "u-victim"}')
     assert excinfo.value.errors()[0]["type"] == "extra_forbidden"
 
-    result = registry.dispatch("get_my_reviews", "{}")
+    result, proposes = registry.dispatch("get_my_reviews", "{}")
+    assert proposes is None
     assert [r["food_name"] for r in result["food_reviews"]] == ["Ramen"]
 
 
@@ -109,19 +110,19 @@ def test_get_my_reviews_food_query_searches_whole_history_accent_insensitive(uow
         })
     registry = ToolRegistry(uow, UID)
 
-    result = registry.dispatch("get_my_reviews", '{"food_query": "doner", "limit": 15}')
+    result, _ = registry.dispatch("get_my_reviews", '{"food_query": "doner", "limit": 15}')
     assert [r["food_name"] for r in result["food_reviews"]] == ["Steak Döner Sandwich"]
 
 
 def test_restaurant_signal_suppresses_single_person_aggregates(uow):
     seed_food_reviews(uow)  # two ratings on r-1 -> average allowed
     registry = ToolRegistry(uow, UID)
-    assert registry.dispatch("get_restaurant_signal", '{"restaurant_id": "r-1"}') == {
+    assert registry.dispatch("get_restaurant_signal", '{"restaurant_id": "r-1"}')[0] == {
         "restaurant_id": "r-1", "rating_count": 2, "avg_rating": 9.0,
     }
 
     uow.food_reviews.docs.pop()  # down to one rating -> IS one identifiable person
-    result = registry.dispatch("get_restaurant_signal", '{"restaurant_id": "r-1"}')
+    result, _ = registry.dispatch("get_restaurant_signal", '{"restaurant_id": "r-1"}')
     assert result["rating_count"] == 1
     assert result["avg_rating"] is None
 
@@ -134,7 +135,7 @@ def test_chat_returns_text_blocks(client):
 
     assert response.status_code == 200
     assert response.json() == {
-        "blocks": [{"kind": "text", "text": "Dein letztes Essen war Ramen, 9/10."}],
+        "blocks": [{"kind": "text", "text": "Dein letztes Essen war Ramen, 9/10.", "proposal": None}],
         "proposals": [],
     }
 
@@ -180,6 +181,32 @@ def test_tool_results_round_trip_to_a_final_answer(client, uow):
     assert payload["kind"] == "data"
     assert payload["data"]["food_reviews"][0]["food_name"] == "Ramen"
     assert response.json()["blocks"][0]["text"].startswith("Zuletzt")
+
+
+def test_transcribe_returns_text_and_respects_size_cap(client):
+    from src.agent.gateways import SttGateway
+    from src.dependencies import get_stt_gateway
+
+    class FakeStt(SttGateway):
+        def transcribe(self, audio, filename, content_type, language):
+            assert language == "de"
+            return "Der Döner war top."
+
+    app.dependency_overrides[get_stt_gateway] = lambda: FakeStt()
+    ok = client.post("/agent/transcribe", data={"language": "de"},
+                     files={"file": ("clip.webm", b"fake-audio", "audio/webm")})
+    assert ok.status_code == 200
+    assert ok.json() == {"text": "Der Döner war top."}
+
+    too_big = client.post("/agent/transcribe", data={"language": "de"},
+                          files={"file": ("clip.webm", b"x" * 6_000_000, "audio/webm")})
+    assert too_big.status_code == 413
+
+
+def test_transcribe_unavailable_without_configured_key(client):
+    response = client.post("/agent/transcribe", data={"language": "de"},
+                           files={"file": ("clip.webm", b"fake", "audio/webm")})
+    assert response.status_code == 503
 
 
 def test_iteration_cap_yields_a_clean_fallback_reply(client, uow):

@@ -13,8 +13,9 @@ from fastapi import Depends, HTTPException
 
 from src.config import settings
 from src.unit_of_work import UnitOfWork, MongoUnitOfWork
-from src.agent.gateways import LlmGateway, GroqLlmGateway
+from src.agent.gateways import LlmGateway, GroqLlmGateway, SttGateway, GroqSttGateway
 from src.agent.services.agent_srv import AgentService
+from src.agent.services.confirm_srv import ConfirmService
 from src.restaurants.gateways import GooglePlacesGateway, NominatimGateway
 from src.users.services import UserService, FriendService
 from src.restaurants.services.restaurants_srv import RestaurantService
@@ -43,6 +44,12 @@ def get_llm_gateway() -> LlmGateway:
     if not settings.llm_api_key:
         raise HTTPException(status_code=503, detail="The assistant is not configured on this server.")
     return GroqLlmGateway()
+
+
+def get_stt_gateway() -> SttGateway:
+    if not settings.llm_api_key:
+        raise HTTPException(status_code=503, detail="Transcription is not configured on this server.")
+    return GroqSttGateway()
 
 
 # ---- services (depend only on the abstractions above) ----
@@ -84,3 +91,9 @@ def get_agent_service(
     llm: LlmGateway = Depends(get_llm_gateway),
 ) -> AgentService:
     return AgentService(uow, llm)
+
+
+def get_confirm_service(uow: UnitOfWork = Depends(get_unit_of_work)) -> ConfirmService:
+    # Deliberately no LlmGateway dependency: confirming a pending draft must keep
+    # working even when the LLM key is missing or the provider is down.
+    return ConfirmService(uow)

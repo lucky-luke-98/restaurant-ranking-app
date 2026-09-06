@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     llm_max_completion_tokens: int = Field(700, description="Cap on assistant tokens per call.")
     agent_max_iterations: int = Field(5, description="Hard cap on tool-loop iterations per request.")
     agent_tpm_ceiling: int = Field(8000, description="Provider tokens-per-minute limit, for the pre-send estimate.")
+    stt_model: str = Field("whisper-large-v3", description="Speech-to-text model id on the LLM provider.")
+    stt_max_audio_bytes: int = Field(5_000_000, description="Upload cap for one dictation clip (~2 minutes of compressed audio).")
 
     # api related
     allowed_origins: str = Field("http://localhost:8081", description="Comma-separated list of allowed CORS origins.")

@@ -108,7 +108,11 @@ class MongoReviewRepository(MongoRepository, ReviewRepository):
         doc = review.model_dump(mode="json")
         if coauthor_ids:
             doc["coauthor_ids"] = coauthor_ids
-        result = self._collection.insert_one(doc, session=self._session)
+        try:
+            result = self._collection.insert_one(doc, session=self._session)
+        except DuplicateKeyError as exc:
+            # The unique review_id index makes a double-confirm a visible 409, not a dup.
+            raise AlreadyExistsError("A review with this id already exists.") from exc
         return result.acknowledged
 
     def get(self, review_id: str) -> dict | None:

@@ -62,8 +62,11 @@ class ReviewService:
             if not self._uow.users.exists(coauthor_id):
                 raise ValueError(f"Coauthor user '{coauthor_id}' not found.")
 
+        # exclude_none: review_id is typed str with a default_factory on the entity and
+        # would reject an explicit None; every other optional field defaults to None anyway.
         review = RestaurantReview(
-            **request.model_dump(exclude={"coauthor_ids", "images"}), user_id=user_id
+            **request.model_dump(exclude={"coauthor_ids", "images"}, exclude_none=True),
+            user_id=user_id,
         )
         if not self._uow.reviews.add(review, request.coauthor_ids):
             return None

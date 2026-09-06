@@ -190,9 +190,9 @@ class FakeReviewRepository(ReviewRepository):
         self.docs: list[dict] = []
 
     def add(self, review: RestaurantReview, coauthor_ids: list[str]) -> bool:
-        # Mirrors the unique index on review_id (the adapter does not translate this one).
+        # Mirrors the unique review_id index, translated like the Mongo adapter.
         if any(d["review_id"] == review.review_id for d in self.docs):
-            raise DuplicateKeyError("review_id duplicate")
+            raise AlreadyExistsError("A review with this id already exists.")
         doc = review.model_dump(mode="json")
         if coauthor_ids:
             doc["coauthor_ids"] = list(coauthor_ids)
