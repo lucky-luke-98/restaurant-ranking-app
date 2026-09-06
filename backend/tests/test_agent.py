@@ -93,6 +93,26 @@ def test_get_my_reviews_cannot_be_redirected(uow):
     assert [r["food_name"] for r in result["food_reviews"]] == ["Ramen"]
 
 
+def test_get_my_reviews_food_query_searches_whole_history_accent_insensitive(uow):
+    # 10 recent non-döner reviews bury an old döner review — a plain newest-5 fetch
+    # would miss it, which read as "you have no döner reviews" in the app.
+    uow.food_reviews.docs.append({
+        "food_review_id": "fr-old", "review_id": "rev-old", "restaurant_id": "r-1",
+        "user_id": UID, "food_name": "Steak Döner Sandwich", "price": 7.5, "rating": 9.3,
+        "created_at": "2025-01-01T12:00:00+00:00",
+    })
+    for i in range(10):
+        uow.food_reviews.docs.append({
+            "food_review_id": f"fr-{i}", "review_id": f"rev-{i}", "restaurant_id": "r-1",
+            "user_id": UID, "food_name": f"Pizza {i}", "price": 10.0, "rating": 7.0,
+            "created_at": f"2026-08-{i + 10:02d}T12:00:00+00:00",
+        })
+    registry = ToolRegistry(uow, UID)
+
+    result = registry.dispatch("get_my_reviews", '{"food_query": "doner", "limit": 15}')
+    assert [r["food_name"] for r in result["food_reviews"]] == ["Steak Döner Sandwich"]
+
+
 def test_restaurant_signal_suppresses_single_person_aggregates(uow):
     seed_food_reviews(uow)  # two ratings on r-1 -> average allowed
     registry = ToolRegistry(uow, UID)

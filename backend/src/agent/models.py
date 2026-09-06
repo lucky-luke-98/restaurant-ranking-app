@@ -28,7 +28,13 @@ class FindRestaurantArgs(ToolArgs):
 
 class GetMyReviewsArgs(ToolArgs):
     restaurant_id: str | None = Field(None, description="Optional: only reviews for this restaurant.")
-    limit: int = Field(5, ge=1, le=5, description="Maximum number of reviews to return.")
+    food_query: str | None = Field(
+        None, max_length=80,
+        description="Optional case- and accent-insensitive substring matched against dish "
+                    "names across the user's WHOLE history, e.g. 'döner' or 'pizza'. Use this "
+                    "for questions like 'my best/favorite X'.",
+    )
+    limit: int = Field(5, ge=1, le=15, description="Maximum number of reviews to return.")
 
 
 class GetRestaurantSignalArgs(ToolArgs):
