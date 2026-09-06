@@ -299,6 +299,17 @@ const en = {
   leaveReview: 'Leave',
   confirmLeaveReview: 'Leave this review?',
 
+  // Assistant chat
+  chatTitle: 'Assistant',
+  chatAskAboutPlace: 'Ask about this place',
+  chatPlaceholder: 'Ask about your reviews…',
+  chatSend: 'Send',
+  chatEmptyHint: 'Ask me about your past reviews and dishes, or how a restaurant scores.',
+  chatThinking: 'Thinking…',
+  chatUnavailable: 'The assistant is currently unavailable.',
+  chatRateLimited: 'Daily question limit reached — try again tomorrow.',
+  chatError: 'Something went wrong. Please try again.',
+
   // Admin Panel
   adminPanel: 'Admin Panel',
   adminUsers: 'Users',

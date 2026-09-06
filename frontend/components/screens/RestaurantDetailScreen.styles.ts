@@ -38,6 +38,23 @@ export const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: colors.textMuted,
     fontSize: 14,
   },
+  askPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  askPillText: {
+    color: colors.primary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
   statsSummary: {
     flexDirection: 'row',
     alignItems: 'center',

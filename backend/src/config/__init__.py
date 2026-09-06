@@ -32,6 +32,15 @@ class Settings(BaseSettings):
     mongo_images_collection: str = Field("images", description="The name of the collection that stores all food review images.")
     mongo_friends_collection: str = Field("friends", description="The name of the collection that stores friend connections.")
 
+    # llm (conversational agent)
+    llm_base_url: str = Field("https://api.groq.com/openai/v1", description="OpenAI-compatible base URL.")
+    llm_api_key: str = Field("", description="Bearer token. Empty disables the agent; must not crash startup.")
+    llm_model: str = Field("openai/gpt-oss-120b", description="Model id. Free tiers retire models — config, not code.")
+    llm_timeout_seconds: int = Field(45, description="HTTP timeout for one LLM call.")
+    llm_max_completion_tokens: int = Field(700, description="Cap on assistant tokens per call.")
+    agent_max_iterations: int = Field(5, description="Hard cap on tool-loop iterations per request.")
+    agent_tpm_ceiling: int = Field(8000, description="Provider tokens-per-minute limit, for the pre-send estimate.")
+
     # api related
     allowed_origins: str = Field("http://localhost:8081", description="Comma-separated list of allowed CORS origins.")
 

@@ -8,8 +8,8 @@ import {
   Platform,
   RefreshControl,
 } from 'react-native'
-import { useLocalSearchParams, Stack } from 'expo-router'
-import { PlusIcon, StarIcon, NotepadIcon, PencilSimpleIcon } from 'phosphor-react-native'
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router'
+import { PlusIcon, StarIcon, NotepadIcon, PencilSimpleIcon, ChatCircleDotsIcon } from 'phosphor-react-native'
 import apiClient, { ApiError } from '@/services/apiClient'
 import { useAuth } from '@/services/AuthContext'
 import ReviewCard from '@/components/cards/ReviewCard'
@@ -78,6 +78,7 @@ interface FoodReview {
 
 export default function RestaurantDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
+  const router = useRouter()
   const { user } = useAuth()
   const { t } = useTranslation()
   const colors = useThemeColors()
@@ -419,6 +420,18 @@ export default function RestaurantDetailScreen() {
             <Text style={styles.address}>
               {`${restaurant.street}, ${restaurant.city}, ${restaurant.country}`}
             </Text>
+            <Pressable
+              style={({ pressed }) => [styles.askPill, pressed && { opacity: 0.7 }]}
+              onPress={() =>
+                router.push({
+                  pathname: '/chat',
+                  params: { restaurant_id: restaurant.restaurant_id, restaurant_name: restaurant.name },
+                })
+              }
+            >
+              <ChatCircleDotsIcon size={16} color={colors.primary} weight="bold" />
+              <Text style={styles.askPillText}>{t.chatAskAboutPlace}</Text>
+            </Pressable>
             {foodAvg !== null && (
               <View style={styles.statsSummary}>
                 <StarIcon size={18} color={ratingColor(foodAvg)} weight="fill" />

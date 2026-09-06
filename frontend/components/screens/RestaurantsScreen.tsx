@@ -483,11 +483,6 @@ export default function RestaurantsScreen() {
         onCancel={() => setDeleteConfirmId(null)}
       />
 
-      {/* FAB */}
-      <Pressable style={styles.fab} onPress={openAddModal}>
-        <PlusIcon size={28} color="#fff" weight="bold" />
-      </Pressable>
-
       {/* Search & Filter Modal */}
       <Modal
         visible={filterModalVisible}

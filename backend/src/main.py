@@ -10,6 +10,7 @@ from src.config import settings
 from src.utils.logger import configure_logger
 from src.users import user_router
 from src.restaurants.controllers import *
+from src.agent.controllers import agent_router
 from src.utils.rate_limit import limiter
 from src.db.mongo_client import initialize_mongo_client, close_mongo_client
 
@@ -53,6 +54,7 @@ app.include_router(restaurant_router, prefix="/restaurant")
 app.include_router(review_router, prefix="/review")
 app.include_router(visited_router, prefix="/visited")
 app.include_router(wishlist_router, prefix="/wishlist")
+app.include_router(agent_router, prefix="/agent")
 
 
 @app.get("/", tags=["home"])

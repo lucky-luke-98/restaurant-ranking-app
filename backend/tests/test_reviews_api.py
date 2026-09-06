@@ -21,7 +21,9 @@ def make_review_payload(**overrides) -> dict:
 
 def test_endpoints_require_authentication(anon_client):
     response = anon_client.get("/review/r-1")
-    assert response.status_code == 403
+    # HTTPBearer answers 403 on older FastAPI/Starlette, 401 on newer; deps are
+    # unpinned, so accept both — the invariant is "rejected, never served".
+    assert response.status_code in (401, 403)
 
 
 def test_create_review_moves_author_to_visited_and_clears_wishlist(client, uow):

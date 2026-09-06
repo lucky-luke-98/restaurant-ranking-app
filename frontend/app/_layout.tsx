@@ -58,6 +58,17 @@ function AuthGate() {
       <Stack.Screen name="auth" options={{ title: t.navWelcome, headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="restaurant/[id]" options={{ title: t.navRestaurant }} />
+      {/* transparentModal, not modal: on web, 'modal'/'formSheet' render as regular
+          stack routes (a full page navigation) — unlike every other sheet in the app. */}
+      <Stack.Screen
+        name="chat"
+        options={{
+          title: t.chatTitle,
+          headerShown: false,
+          presentation: Platform.OS === 'web' ? 'transparentModal' : 'formSheet',
+          animation: Platform.OS === 'web' ? 'fade' : 'slide_from_bottom',
+        }}
+      />
       <Stack.Screen name="+not-found" />
     </Stack>
   );

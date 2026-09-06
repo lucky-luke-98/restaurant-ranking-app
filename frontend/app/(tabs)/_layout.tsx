@@ -3,6 +3,7 @@ import { ForkKnifeIcon, MapPinIcon, UsersThreeIcon, UserIcon } from 'phosphor-re
 import { View } from 'react-native'
 import { useIsFocused } from '@react-navigation/native'
 import type { ReactNode } from 'react'
+import AskFab from '@/components/AskFab'
 import { useTranslation } from '@/services/LanguageContext'
 import { useThemeColors } from '@/hooks/useThemeColors'
 import { FriendsProvider, useFriends } from '@/services/FriendsContext'
@@ -96,7 +97,12 @@ function TabsInner() {
 export default function TabsLayout() {
   return (
     <FriendsProvider>
-      <TabsInner />
+      {/* The FAB is a sibling of <Tabs>, not a child of any scene: FocusGuard keeps
+          every tab mounted, so it never unmounts or flickers on tab switches. */}
+      <View style={{ flex: 1 }}>
+        <TabsInner />
+        <AskFab />
+      </View>
     </FriendsProvider>
   )
 }

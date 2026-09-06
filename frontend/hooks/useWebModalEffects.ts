@@ -1,8 +1,30 @@
 import { useEffect, useState } from 'react'
 import { Platform, StyleProp, ViewStyle } from 'react-native'
 
-export function useWebModalEffects(visible: boolean): { sheetStyle: StyleProp<ViewStyle> } {
+interface WebModalEffects {
+  sheetStyle: StyleProp<ViewStyle>
+  /** Height of the iOS-Safari keyboard intruding into the layout viewport (0 elsewhere). */
+  keyboardInset: number
+  /** Current visual-viewport height in px, or null when unknown (SSR, no visualViewport). */
+  viewportHeight: number | null
+}
+
+/**
+ * Web-only side effects for sheet-like overlays: locks body scroll and tracks the
+ * visual viewport so content can lift above the iOS Safari keyboard.
+ *
+ * iOS Safari does not resize the layout viewport for the keyboard and
+ * `interactive-widget=resizes-content` is unimplemented there, so `position: fixed`
+ * strategies fail; the only reliable signal is `visualViewport` resize/scroll.
+ * The inset is clamped to 0 because on iOS 26 the values do not reliably revert
+ * after dismissal.
+ */
+export function useWebModalEffects(visible: boolean): WebModalEffects {
   const [keyboardInset, setKeyboardInset] = useState(0)
+  const [viewportHeight, setViewportHeight] = useState<number | null>(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return null
+    return window.visualViewport?.height ?? window.innerHeight
+  })
 
   useEffect(() => {
     if (Platform.OS !== 'web' || !visible || typeof document === 'undefined') return
@@ -18,6 +40,7 @@ export function useWebModalEffects(visible: boolean): { sheetStyle: StyleProp<Vi
       ? () => {
           const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
           setKeyboardInset(inset)
+          setViewportHeight(vv.height)
         }
       : null
 
@@ -39,7 +62,7 @@ export function useWebModalEffects(visible: boolean): { sheetStyle: StyleProp<Vi
   }, [visible])
 
   if (Platform.OS !== 'web') {
-    return { sheetStyle: undefined }
+    return { sheetStyle: undefined, keyboardInset: 0, viewportHeight: null }
   }
 
   const paddingBottom =
@@ -47,5 +70,7 @@ export function useWebModalEffects(visible: boolean): { sheetStyle: StyleProp<Vi
 
   return {
     sheetStyle: { paddingBottom } as unknown as StyleProp<ViewStyle>,
+    keyboardInset,
+    viewportHeight,
   }
 }

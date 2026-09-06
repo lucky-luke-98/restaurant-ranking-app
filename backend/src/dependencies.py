@@ -9,9 +9,12 @@ Each request gets a fresh Unit of Work (cheap to construct — no I/O until used
 which FastAPI shares between the services resolved for that request.
 """
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 
+from src.config import settings
 from src.unit_of_work import UnitOfWork, MongoUnitOfWork
+from src.agent.gateways import LlmGateway, GroqLlmGateway
+from src.agent.services.agent_srv import AgentService
 from src.restaurants.gateways import GooglePlacesGateway, NominatimGateway
 from src.users.services import UserService, FriendService
 from src.restaurants.services.restaurants_srv import RestaurantService
@@ -32,6 +35,14 @@ def get_places_gateway() -> GooglePlacesGateway:
 
 def get_geocoder_gateway() -> NominatimGateway:
     return NominatimGateway()
+
+
+def get_llm_gateway() -> LlmGateway:
+    # An empty key must never take down the other endpoints — the agent is one
+    # endpoint out of 43 and degrades to "assistant unavailable".
+    if not settings.llm_api_key:
+        raise HTTPException(status_code=503, detail="The assistant is not configured on this server.")
+    return GroqLlmGateway()
 
 
 # ---- services (depend only on the abstractions above) ----
@@ -66,3 +77,10 @@ def get_visited_service(uow: UnitOfWork = Depends(get_unit_of_work)) -> VisitedS
 
 def get_wishlist_service(uow: UnitOfWork = Depends(get_unit_of_work)) -> WishlistService:
     return WishlistService(uow)
+
+
+def get_agent_service(
+    uow: UnitOfWork = Depends(get_unit_of_work),
+    llm: LlmGateway = Depends(get_llm_gateway),
+) -> AgentService:
+    return AgentService(uow, llm)

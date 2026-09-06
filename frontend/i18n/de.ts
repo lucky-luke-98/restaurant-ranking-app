@@ -301,6 +301,17 @@ const de: Translations = {
   leaveReview: 'Verlassen',
   confirmLeaveReview: 'Diese Bewertung verlassen?',
 
+  // Assistant chat
+  chatTitle: 'Assistent',
+  chatAskAboutPlace: 'Frag zu diesem Ort',
+  chatPlaceholder: 'Frag zu deinen Bewertungen…',
+  chatSend: 'Senden',
+  chatEmptyHint: 'Frag mich zu deinen bisherigen Bewertungen und Gerichten, oder wie ein Restaurant abschneidet.',
+  chatThinking: 'Denkt nach…',
+  chatUnavailable: 'Der Assistent ist gerade nicht verfügbar.',
+  chatRateLimited: 'Tageslimit erreicht — versuch es morgen wieder.',
+  chatError: 'Etwas ist schiefgelaufen. Versuch es bitte erneut.',
+
   // Admin Panel
   adminPanel: 'Admin-Bereich',
   adminUsers: 'Benutzer',
